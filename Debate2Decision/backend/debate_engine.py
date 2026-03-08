@@ -72,7 +72,64 @@ LANGUAGE_INSTRUCTIONS = {
 - Use expressions like "பாருங்க", "கேளுங்க", "என்ன நான் சொல்ல வர்றேன்னா", "நிஜமாவே"
 - Keep it conversational - the way educated Tamilians speak in discussions
 """,
+    "spanish": """LANGUAGE: Respond ONLY in Spanish.
+- Use natural conversational Spanish
+- Use expressions like "mira", "la verdad es que", "en mi opinión", "fíjate que", "o sea"
+- Keep it warm and expressive as native Spanish speakers do
+""",
+    "french": """LANGUAGE: Respond ONLY in French.
+- Use natural conversational French
+- Use expressions like "écoutez", "en fait", "franchement", "voyez-vous", "c'est-à-dire"
+- Keep it elegant but conversational as educated French speakers do
+""",
+    "german": """LANGUAGE: Respond ONLY in German.
+- Use natural conversational German
+- Use expressions like "schauen Sie", "ehrlich gesagt", "also", "meiner Meinung nach", "wissen Sie"
+- Keep it direct but warm as native German speakers do
+""",
+    "japanese": """LANGUAGE: Respond ONLY in Japanese (mix of Kanji, Hiragana, Katakana).
+- Use natural spoken Japanese, polite but not overly formal
+- Use expressions like "実は", "つまり", "正直に言うと", "ちょっと考えてみてください", "なるほど"
+- Keep it respectful and thoughtful as educated Japanese speakers do
+""",
+    "korean": """LANGUAGE: Respond ONLY in Korean using Hangul.
+- Use natural spoken Korean, polite but conversational
+- Use expressions like "사실은", "솔직히 말하면", "제 생각에는", "잠깐만요", "그러니까"
+- Keep it respectful and expressive as native Korean speakers do
+""",
+    "chinese": """LANGUAGE: Respond ONLY in Mandarin Chinese using Simplified Chinese characters.
+- Use natural spoken Mandarin
+- Use expressions like "其实", "说实话", "我觉得", "你看", "关键是"
+- Keep it conversational as educated Mandarin speakers do
+""",
+    "portuguese": """LANGUAGE: Respond ONLY in Portuguese (Brazilian Portuguese preferred).
+- Use natural conversational Portuguese
+- Use expressions like "olha", "na verdade", "sinceramente", "veja bem", "tipo assim"
+- Keep it warm and expressive as native Brazilian speakers do
+""",
+    "arabic": """LANGUAGE: Respond ONLY in Arabic using Arabic script.
+- Use natural Modern Standard Arabic with some colloquial touches
+- Use expressions like "يعني", "بصراحة", "الحقيقة", "طبعاً", "انظروا"
+- Keep it conversational and respectful as educated Arabic speakers do
+""",
+    "russian": """LANGUAGE: Respond ONLY in Russian using Cyrillic script.
+- Use natural conversational Russian
+- Use expressions like "вообще-то", "на самом деле", "послушайте", "честно говоря", "знаете"
+- Keep it direct but warm as native Russian speakers do
+""",
 }
+
+
+def get_language_instruction(language: str) -> str:
+    lang_key = language.lower().strip()
+    if lang_key in LANGUAGE_INSTRUCTIONS:
+        return LANGUAGE_INSTRUCTIONS[lang_key]
+    return f"""LANGUAGE: Respond ONLY in {language}.
+- Use natural, conversational {language} as spoken by native speakers
+- Use common filler expressions and discourse markers natural to {language}
+- Keep it conversational - the way educated native {language} speakers discuss topics
+- Do NOT mix in English unless it's naturally common in {language} conversations
+"""
 
 ROUND_INSTRUCTIONS = {
     "Opening Statements": "Share why this topic matters to you personally. Be genuine about your perspective. Use a real-world example or a personal experience to connect with the audience. Set your tone - warm, passionate, thoughtful.",
@@ -144,7 +201,7 @@ class DebateEngine:
         context = self._build_context(round_num)
 
         language = self.setup.language
-        lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["english"])
+        lang_instruction = get_language_instruction(language)
 
         prompt = AGENT_PROMPT.format(
             name=agent.name,
@@ -163,7 +220,7 @@ class DebateEngine:
             language_instruction=lang_instruction,
         )
 
-        lang_label = {"english": "English", "hindi": "Hindi", "tamil": "Tamil"}.get(language, "English")
+        lang_label = language.capitalize()
         system = (
             f"You are {agent.name}, a real {agent.gender} person. "
             f"You're a {agent.role} who {agent.emotional_style}. "
@@ -211,7 +268,7 @@ class DebateEngine:
             agent_stances=agent_stances,
         )
 
-        lang_label = {"english": "English", "hindi": "Hindi", "tamil": "Tamil"}.get(self.setup.language, "English")
+        lang_label = self.setup.language.capitalize()
         text = await call_groq(
             prompt,
             system=f"You are a warm, thoughtful debate judge. Respond with valid JSON only. The 'conclusion' and 'reasoning' fields must be in {lang_label}. The 'winner', 'winner_role', 'name', 'role', 'strength' fields must also be in {lang_label}. Only the JSON keys must remain in English."

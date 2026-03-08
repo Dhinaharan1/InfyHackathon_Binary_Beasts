@@ -12,6 +12,15 @@ const LANGUAGES = [
   { code: "english", label: "English", flag: "\uD83C\uDDEC\uD83C\uDDE7", native: "English" },
   { code: "hindi", label: "Hindi", flag: "\uD83C\uDDEE\uD83C\uDDF3", native: "\u0939\u093F\u0928\u094D\u0926\u0940" },
   { code: "tamil", label: "Tamil", flag: "\uD83C\uDDEE\uD83C\uDDF3", native: "\u0BA4\u0BAE\u0BBF\u0BB4\u0BCD" },
+  { code: "spanish", label: "Spanish", flag: "\uD83C\uDDEA\uD83C\uDDF8", native: "Espa\u00F1ol" },
+  { code: "french", label: "French", flag: "\uD83C\uDDEB\uD83C\uDDF7", native: "Fran\u00E7ais" },
+  { code: "german", label: "German", flag: "\uD83C\uDDE9\uD83C\uDDEA", native: "Deutsch" },
+  { code: "japanese", label: "Japanese", flag: "\uD83C\uDDEF\uD83C\uDDF5", native: "\u65E5\u672C\u8A9E" },
+  { code: "korean", label: "Korean", flag: "\uD83C\uDDF0\uD83C\uDDF7", native: "\uD55C\uAD6D\uC5B4" },
+  { code: "chinese", label: "Chinese", flag: "\uD83C\uDDE8\uD83C\uDDF3", native: "\u4E2D\u6587" },
+  { code: "portuguese", label: "Portuguese", flag: "\uD83C\uDDE7\uD83C\uDDF7", native: "Portugu\u00EAs" },
+  { code: "arabic", label: "Arabic", flag: "\uD83C\uDDF8\uD83C\uDDE6", native: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
+  { code: "russian", label: "Russian", flag: "\uD83C\uDDF7\uD83C\uDDFA", native: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439" },
 ];
 
 const EXAMPLE_TOPICS: Record<string, { text: string; icon: string }[]> = {
@@ -49,6 +58,8 @@ const FLOATING_ICONS = [
 export default function TopicInput({ onSubmit, isLoading }: Props) {
   const [topic, setTopic] = useState("");
   const [language, setLanguage] = useState("english");
+  const [customLanguage, setCustomLanguage] = useState("");
+  const [showAllLanguages, setShowAllLanguages] = useState(false);
   const [numAgents, setNumAgents] = useState(3);
   const [numRounds, setNumRounds] = useState(4);
   const [showConfig, setShowConfig] = useState(false);
@@ -61,9 +72,12 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
     suggestion: string;
   } | null>(null);
 
+  const effectiveLanguage = language === "custom" ? customLanguage.trim().toLowerCase() : language;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
+    if (language === "custom" && !customLanguage.trim()) return;
 
     setChecking(true);
     try {
@@ -76,14 +90,14 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
       setSensitivityWarning(data);
     } catch {
       // If check fails, proceed anyway
-      onSubmit(topic.trim(), language, numAgents, numRounds, personaConstraints.trim());
+      onSubmit(topic.trim(), effectiveLanguage, numAgents, numRounds, personaConstraints.trim());
     }
     setChecking(false);
   };
 
   const handleProceedAnyway = () => {
     setSensitivityWarning(null);
-    onSubmit(topic.trim(), language, numAgents, numRounds, personaConstraints.trim());
+    onSubmit(topic.trim(), effectiveLanguage, numAgents, numRounds, personaConstraints.trim());
   };
 
   const handleUseSuggestion = () => {
@@ -188,27 +202,83 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
             <label className="text-sm font-medium text-gray-300 block mb-2">
               Debate Language
             </label>
-            <div className="flex gap-2">
-              {LANGUAGES.map((lang) => (
+            <div className="grid grid-cols-4 gap-1.5">
+              {(showAllLanguages ? LANGUAGES : LANGUAGES.slice(0, 4)).map((lang) => (
                 <button
                   key={lang.code}
                   type="button"
                   onClick={() => {
                     setLanguage(lang.code);
+                    setCustomLanguage("");
                     setTopic("");
                   }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                     language === lang.code
                       ? "bg-indigo-600/80 text-white border border-indigo-500/50 shadow-lg shadow-indigo-500/20"
                       : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08] hover:border-indigo-500/30"
                   }`}
                 >
-                  <span className="text-lg">{lang.flag}</span>
-                  <span>{lang.label}</span>
-                  <span className="text-xs opacity-60">({lang.native})</span>
+                  <span>{lang.flag}</span>
+                  <span className="truncate">{lang.label}</span>
                 </button>
               ))}
             </div>
+
+            <div className="flex items-center gap-2 mt-2">
+              {!showAllLanguages && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllLanguages(true)}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  + {LANGUAGES.length - 4} more languages
+                </button>
+              )}
+              {showAllLanguages && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllLanguages(false)}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Show less
+                </button>
+              )}
+              <span className="text-gray-600 text-[11px]">|</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setLanguage(language === "custom" ? "english" : "custom");
+                  if (language !== "custom") setTopic("");
+                }}
+                className={`text-[11px] font-medium transition-colors ${
+                  language === "custom"
+                    ? "text-indigo-300"
+                    : "text-gray-500 hover:text-gray-300"
+                }`}
+              >
+                {language === "custom" ? "\u2713 Custom language" : "Type a custom language"}
+              </button>
+            </div>
+
+            {language === "custom" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="mt-2"
+              >
+                <input
+                  type="text"
+                  value={customLanguage}
+                  onChange={(e) => setCustomLanguage(e.target.value)}
+                  placeholder="e.g. Odia, Swahili, Thai, Vietnamese..."
+                  className="w-full bg-white/5 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                  autoFocus
+                />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Type any language name. AI will generate debate content in that language. TTS will fall back to English if unsupported.
+                </p>
+              </motion.div>
+            )}
           </div>
 
           {/* Config toggle */}
@@ -324,7 +394,7 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
             </div>
             <button
               type="submit"
-              disabled={!topic.trim() || isLoading || checking}
+              disabled={!topic.trim() || isLoading || checking || (language === "custom" && !customLanguage.trim())}
               className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white font-semibold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 disabled:shadow-none"
             >
               {isLoading || checking ? (

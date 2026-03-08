@@ -180,11 +180,67 @@ LANGUAGE_CONFIG = {
         "accent_note": "All agents should be Tamil with Tamil names from different regions of Tamil Nadu.",
         "accent_options": '"indian"',
     },
+    "spanish": {
+        "instruction": "All debate responses must be in Spanish. Use natural conversational Spanish.",
+        "accent_note": "Mix of Spanish and Latin American backgrounds with culturally appropriate names.",
+        "accent_options": '"indian"',
+    },
+    "french": {
+        "instruction": "All debate responses must be in French. Use natural conversational French.",
+        "accent_note": "Mix of French backgrounds with culturally appropriate French names.",
+        "accent_options": '"indian"',
+    },
+    "german": {
+        "instruction": "All debate responses must be in German. Use natural conversational German.",
+        "accent_note": "Mix of German-speaking backgrounds with culturally appropriate names.",
+        "accent_options": '"indian"',
+    },
+    "japanese": {
+        "instruction": "All debate responses must be in Japanese (using appropriate mix of Kanji, Hiragana, Katakana). Use natural spoken Japanese.",
+        "accent_note": "All agents should be Japanese with Japanese names from different regions/backgrounds.",
+        "accent_options": '"indian"',
+    },
+    "korean": {
+        "instruction": "All debate responses must be in Korean (Hangul). Use natural spoken Korean.",
+        "accent_note": "All agents should be Korean with Korean names from different backgrounds.",
+        "accent_options": '"indian"',
+    },
+    "chinese": {
+        "instruction": "All debate responses must be in Mandarin Chinese (Simplified Chinese characters). Use natural spoken Mandarin.",
+        "accent_note": "All agents should be Chinese with Chinese names from different regions/backgrounds.",
+        "accent_options": '"indian"',
+    },
+    "portuguese": {
+        "instruction": "All debate responses must be in Portuguese. Use natural conversational Brazilian Portuguese.",
+        "accent_note": "Mix of Brazilian and Portuguese backgrounds with culturally appropriate names.",
+        "accent_options": '"indian"',
+    },
+    "arabic": {
+        "instruction": "All debate responses must be in Arabic (Arabic script). Use natural Modern Standard Arabic with some colloquial touches.",
+        "accent_note": "Mix of Arab backgrounds with culturally appropriate Arabic names from different regions.",
+        "accent_options": '"indian"',
+    },
+    "russian": {
+        "instruction": "All debate responses must be in Russian (Cyrillic script). Use natural conversational Russian.",
+        "accent_note": "All agents should be Russian-speaking with culturally appropriate names.",
+        "accent_options": '"indian"',
+    },
 }
 
 
+def get_language_config(language: str) -> dict:
+    lang_key = language.lower().strip()
+    if lang_key in LANGUAGE_CONFIG:
+        return LANGUAGE_CONFIG[lang_key]
+    return {
+        "instruction": f"All debate responses must be in {language}. Use natural conversational {language}.",
+        "accent_note": f"All agents should be {language}-speaking with culturally appropriate names.",
+        "accent_options": '"indian"',
+    }
+
+
 async def generate_debate_setup(topic: str, language: str = "english", num_agents: int = MAX_AGENTS, num_rounds: int = 4, persona_constraints: str = "") -> DebateSetup:
-    lang_cfg = LANGUAGE_CONFIG.get(language, LANGUAGE_CONFIG["english"])
+    lang_cfg = get_language_config(language)
     clamped_agents = max(2, min(5, num_agents))
 
     constraints_text = ""
