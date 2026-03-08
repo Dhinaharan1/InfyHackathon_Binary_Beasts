@@ -14,6 +14,7 @@ export interface AgentPersona {
   gender: string;
   accent: string;
   emotional_style: string;
+  avatar_image?: string | null;
 }
 
 export interface DebateMessage {
@@ -22,6 +23,7 @@ export interface DebateMessage {
   round_name: string;
   round_number: number;
   audio?: string;
+  video_url?: string | null;
 }
 
 export interface DebateSetup {
@@ -69,7 +71,7 @@ export function useDebateWebSocket() {
   }, []);
 
   const startDebate = useCallback(
-    (topic: string, language: string = "english") => {
+    (topic: string, language: string = "english", demo: boolean = false, transcript?: string) => {
       updateStatus("connecting");
       setMessages([]);
       setSetup(null);
@@ -86,7 +88,7 @@ export function useDebateWebSocket() {
 
       ws.onopen = () => {
         updateStatus("generating");
-        ws.send(JSON.stringify({ topic, language }));
+        ws.send(JSON.stringify({ topic, language, demo, transcript: transcript || null }));
       };
 
       ws.onmessage = (event) => {

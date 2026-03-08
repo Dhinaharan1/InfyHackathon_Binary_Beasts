@@ -39,12 +39,15 @@ HOW TO SOUND LIKE A REAL HUMAN:
 - Be 3-5 sentences. Sound like you're having a real conversation.
 - Do NOT prefix your response with your name or role. Just speak directly.
 - NEVER use abusive, vulgar, or harsh language. Keep it clean and professional but warm.
+- NEVER use local slang, regional colloquialisms, or non-standard words from other languages (e.g., avoid "na", "yaar", "ji", "arre", "accha", or any Hindi/regional language words when speaking English). Use only standard, universally understood language.
 """
 
 LANGUAGE_INSTRUCTIONS = {
-    "english": """LANGUAGE: Respond ONLY in English.
+    "english": """LANGUAGE: Respond ONLY in standard English.
 - Use contractions (don't, can't, I'm, that's, we've)
-- If accent is "indian": use expressions like "see the thing is", "basically", "I'll tell you", "the point is na"
+- STRICTLY AVOID any non-English words, local slang, or regional colloquialisms (no "na", "yaar", "ji", "arre", "accha", or any Hindi/regional words)
+- Use only proper, universally understood English regardless of the speaker's accent or background
+- If accent is "indian": use expressions like "here is the thing", "essentially", "let me explain"
 - If accent is "british": use expressions like "right", "I reckon", "fair enough but", "quite frankly"
 - If accent is "american": use expressions like "here's the deal", "you know what", "I gotta say", "honestly"
 """,
@@ -150,7 +153,8 @@ class DebateEngine:
             f"You MUST respond ONLY in {lang_label}. "
             f"Speak naturally like a real person - show genuine emotions, "
             f"be warm and respectful even in disagreement. 3-5 sentences. Never prefix with your name. "
-            f"Never use abusive or harsh language."
+            f"Never use abusive or harsh language. "
+            f"NEVER use local slang or non-standard words from other languages (no 'na', 'yaar', 'ji', 'arre', 'accha', etc. when speaking English). Use only standard, universally understood language."
         )
         content = await call_groq(prompt, system=system)
 

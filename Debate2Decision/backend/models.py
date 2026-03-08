@@ -13,6 +13,7 @@ class AgentPersona(BaseModel):
     gender: str  # "male", "female"
     accent: str  # "indian", "american", "british"
     emotional_style: str  # how they express emotions
+    avatar_image: str | None = None  # base64 AI-generated portrait
 
 
 class DebateMessage(BaseModel):
@@ -20,6 +21,7 @@ class DebateMessage(BaseModel):
     content: str
     round_name: str
     round_number: int
+    video_url: str | None = None
 
 
 class DebateSetup(BaseModel):
@@ -33,3 +35,5 @@ class DebateSetup(BaseModel):
 class DebateRequest(BaseModel):
     topic: str
     language: str = "english"  # "english", "hindi", "tamil"
+    demo: bool = False
+    transcript: str | None = None

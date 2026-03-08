@@ -130,11 +130,11 @@ export default function AgentAvatar({
         </div>
       </div>
 
-      <div className="text-center max-w-[100px]">
-        <p className={`${dim.nameSize} font-semibold text-white truncate`}>
+      <div className="text-center min-w-[120px] max-w-[160px]">
+        <p className={`${dim.nameSize} font-semibold text-white leading-tight`}>
           {agent.name}
         </p>
-        <p className={`${dim.roleSize} text-gray-400 truncate`}>{agent.role}</p>
+        <p className={`${dim.roleSize} text-gray-400 leading-tight`}>{agent.role}</p>
       </div>
     </motion.div>
   );

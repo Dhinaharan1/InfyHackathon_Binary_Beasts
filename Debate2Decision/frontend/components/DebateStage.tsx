@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import AgentAvatar from "./AgentAvatar";
+import AnimatedAvatar from "./AnimatedAvatar";
 import TypingText from "./TypingText";
 import { useSpeechSynthesis } from "./SpeechSynthesis";
 import { DebateMessage, DebateSetup } from "@/hooks/useDebateWebSocket";
@@ -14,6 +14,7 @@ interface Props {
   activeAgent: string | null;
   thinkingAgent?: string | null;
   onAllAudioDone?: () => void;
+  onStop?: () => void;
   debateFinishedFromServer?: boolean;
 }
 
@@ -31,16 +32,21 @@ export default function DebateStage({
   activeAgent,
   thinkingAgent,
   onAllAudioDone,
+  onStop,
   debateFinishedFromServer,
 }: Props) {
-  const { speak, stop } = useSpeechSynthesis();
+  const { speak, stop, pause, resume, paused, getAmplitude } =
+    useSpeechSynthesis();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const lastQueuedRef = useRef<number>(-1);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
 
   const [liveIndex, setLiveIndex] = useState<number>(-1);
   const [liveDurationMs, setLiveDurationMs] = useState<number>(0);
   const [finishedIndex, setFinishedIndex] = useState<number>(-1);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   const debateFinishedRef = useRef(false);
 
@@ -57,11 +63,12 @@ export default function DebateStage({
         behavior: "smooth",
       });
     }
-  }, [messages, thinkingAgent, liveIndex]);
+  }, [messages, thinkingAgent, finishedIndex]);
 
   const handleAudioEnd = useCallback(
     (msgIndex: number) => {
       setFinishedIndex(msgIndex);
+      setIsVideoPlaying(false);
       if (
         debateFinishedRef.current &&
         msgIndex === lastQueuedRef.current &&
@@ -76,11 +83,19 @@ export default function DebateStage({
   useEffect(() => {
     if (messages.length > 0 && messages.length - 1 > lastQueuedRef.current) {
       const msgIndex = messages.length - 1;
+      const msg = messages[msgIndex];
       lastQueuedRef.current = msgIndex;
 
-      if (voiceEnabled && messages[msgIndex].audio) {
+      if (msg.video_url) {
+        setLiveIndex(msgIndex);
+        setIsVideoPlaying(true);
+        setLiveDurationMs(0);
+        return;
+      }
+
+      if (voiceEnabled && msg.audio) {
         speak(
-          messages[msgIndex].audio,
+          msg.audio,
           (durationMs) => {
             setLiveIndex(msgIndex);
             setLiveDurationMs(durationMs);
@@ -97,51 +112,53 @@ export default function DebateStage({
     }
   }, [messages, voiceEnabled, speak, handleAudioEnd]);
 
-  // If server says debate finished and audio is already done (voice off or no audio)
   useEffect(() => {
-    if (
-      debateFinishedFromServer &&
-      !voiceEnabled &&
-      onAllAudioDone
-    ) {
+    if (debateFinishedFromServer && !voiceEnabled && onAllAudioDone) {
       onAllAudioDone();
     }
   }, [debateFinishedFromServer, voiceEnabled, onAllAudioDone]);
 
-  // Determine the currently speaking agent based on audio playback, not WebSocket
   const speakingAgentName =
     liveIndex >= 0 && liveIndex > finishedIndex && liveIndex < messages.length
       ? messages[liveIndex].agent.name
       : null;
 
-  // Show thinking only if no agent is currently speaking from audio playback
   const showThinking = thinkingAgent && !speakingAgentName;
 
-  const groupedMessages: Record<string, DebateMessage[]> = {};
-  messages.forEach((m) => {
-    if (!groupedMessages[m.round_name]) groupedMessages[m.round_name] = [];
-    groupedMessages[m.round_name].push(m);
-  });
-
-  const completedRounds = Object.keys(groupedMessages).length;
+  const groupedRounds = new Set(messages.map((m) => m.round_name));
+  const completedRounds = groupedRounds.size;
   const totalRounds = 4;
   const progress = Math.min((completedRounds / totalRounds) * 100, 100);
 
+  const finishedMessages = messages.slice(0, finishedIndex + 1);
+  const liveMessage =
+    liveIndex >= 0 && liveIndex > finishedIndex && liveIndex < messages.length
+      ? messages[liveIndex]
+      : null;
+
+  const historyByRound: Record<string, DebateMessage[]> = {};
+  finishedMessages.forEach((m) => {
+    if (!historyByRound[m.round_name]) historyByRound[m.round_name] = [];
+    historyByRound[m.round_name].push(m);
+  });
+
+  const hasVideo = liveMessage?.video_url;
+  const speakingAgent = speakingAgentName
+    ? setup.agents.find((a) => a.name === speakingAgentName)
+    : null;
+
   return (
     <div className="flex flex-col h-full gap-3">
-      {/* Header Card */}
-      <div className="glass-card-strong rounded-xl p-4">
-        <div className="flex items-center justify-between mb-3">
+      {/* Header */}
+      <div className="glass-card-strong rounded-xl p-3">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-white truncate">
+            <h2 className="text-base font-bold text-white truncate">
               {setup.topic}
             </h2>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs text-indigo-300 font-medium bg-indigo-500/10 px-2 py-0.5 rounded-full">
                 {setup.industry}
-              </span>
-              <span className="text-xs text-gray-500">
-                {setup.agents.length} agents
               </span>
             </div>
           </div>
@@ -149,8 +166,20 @@ export default function DebateStage({
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => {
+                const turningOff = voiceEnabled;
                 setVoiceEnabled(!voiceEnabled);
-                if (voiceEnabled) stop();
+                if (turningOff) {
+                  stop();
+                  if (videoRef.current) {
+                    videoRef.current.pause();
+                    videoRef.current.src = "";
+                  }
+                  if (liveIndex >= 0 && liveIndex > finishedIndex) {
+                    setLiveDurationMs(0);
+                    setFinishedIndex(liveIndex);
+                    setIsVideoPlaying(false);
+                  }
+                }
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 voiceEnabled
@@ -159,6 +188,33 @@ export default function DebateStage({
               }`}
             >
               {voiceEnabled ? "\uD83D\uDD0A ON" : "\uD83D\uDD07 OFF"}
+            </button>
+
+            {!hasVideo && (
+              <button
+                onClick={() => {
+                  if (paused) resume();
+                  else pause();
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  paused
+                    ? "bg-amber-600/80 text-white shadow-lg shadow-amber-500/20"
+                    : "bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10"
+                }`}
+              >
+                {paused ? "\u25B6 Resume" : "\u23F8 Pause"}
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                pause();
+                if (videoRef.current) videoRef.current.pause();
+                setShowStopConfirm(true);
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-red-600/80 text-white hover:bg-red-500 shadow-lg shadow-red-500/20"
+            >
+              {"\u23F9"} Stop
             </button>
 
             {currentRound && (
@@ -179,138 +235,281 @@ export default function DebateStage({
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="w-full bg-white/5 rounded-full h-1 mb-3">
+        <div className="w-full bg-white/5 rounded-full h-1">
           <motion.div
             className="bg-gradient-to-r from-indigo-500 to-purple-500 h-1 rounded-full"
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.5 }}
           />
         </div>
-
-        {/* Agent Bar - speaking indicator driven by audio playback */}
-        <div className="flex justify-center gap-5 flex-wrap">
-          {setup.agents.map((agent) => (
-            <AgentAvatar
-              key={agent.name}
-              agent={agent}
-              isSpeaking={speakingAgentName === agent.name}
-              isThinking={
-                showThinking ? thinkingAgent === agent.name : false
-              }
-              size="sm"
-            />
-          ))}
-        </div>
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2 pr-1">
-        <AnimatePresence>
-          {Object.entries(groupedMessages).map(([roundName, roundMsgs]) => (
-            <div key={roundName}>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center my-4"
-              >
-                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 text-indigo-200 px-5 py-1.5 rounded-full">
-                  <span className="text-sm">
-                    {ROUND_ICONS[roundName] || ""}
-                  </span>
-                  <span className="text-sm font-semibold">{roundName}</span>
+      {/* Main Stage */}
+      <div className="glass-card rounded-xl p-4 flex-shrink-0">
+        {hasVideo && liveMessage && speakingAgent ? (
+          /* ── Video Mode: compact video + all agents panel ── */
+          <div className="flex flex-col gap-4">
+            {/* Top row: all agents + video side by side */}
+            <div className="flex items-start gap-5">
+              {/* Left: agent panel */}
+              <div className="flex flex-col gap-3 flex-shrink-0">
+                {setup.agents.map((agent) => {
+                  const isSpeaker = speakingAgentName === agent.name;
+                  return (
+                    <motion.div
+                      key={agent.name}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
+                        isSpeaker
+                          ? "glass-card-strong"
+                          : "bg-white/[0.02]"
+                      }`}
+                      animate={{ opacity: isSpeaker ? 1 : 0.6 }}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <div
+                          className="w-12 h-12 rounded-full overflow-hidden border-2"
+                          style={{
+                            borderColor: isSpeaker
+                              ? agent.avatar_color
+                              : agent.avatar_color + "40",
+                            boxShadow: isSpeaker
+                              ? `0 0 12px ${agent.avatar_color}40`
+                              : "none",
+                          }}
+                        >
+                          {agent.avatar_image ? (
+                            <img
+                              src={
+                                agent.avatar_image.startsWith("data:")
+                                  ? agent.avatar_image
+                                  : `data:image/png;base64,${agent.avatar_image}`
+                              }
+                              alt={agent.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div
+                              className="w-full h-full flex items-center justify-center text-white text-sm font-bold"
+                              style={{ backgroundColor: agent.avatar_color }}
+                            >
+                              {agent.name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .slice(0, 2)}
+                            </div>
+                          )}
+                        </div>
+                        {isSpeaker && (
+                          <motion.div
+                            className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 rounded-full border-2 border-gray-900 flex items-center justify-center"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                          >
+                            <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                          </motion.div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p
+                          className="text-xs font-semibold truncate"
+                          style={{ color: agent.avatar_color }}
+                        >
+                          {agent.name}
+                        </p>
+                        <p className="text-[10px] text-gray-500 truncate">
+                          {agent.role}
+                        </p>
+                        <span
+                          className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full font-semibold mt-0.5 ${
+                            agent.stance === "for"
+                              ? "bg-emerald-500/15 text-emerald-400"
+                              : agent.stance === "against"
+                                ? "bg-red-500/15 text-red-400"
+                                : "bg-amber-500/15 text-amber-400"
+                          }`}
+                        >
+                          {agent.stance.toUpperCase()}
+                        </span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Right: video player */}
+              <div className="flex-1 min-w-0">
+                <div
+                  className="relative rounded-xl overflow-hidden border"
+                  style={{
+                    borderColor: speakingAgent.avatar_color + "30",
+                  }}
+                >
+                  <video
+                    ref={videoRef}
+                    src={liveMessage.video_url!}
+                    autoPlay
+                    className="w-full aspect-[4/5] object-cover bg-gray-900"
+                    onPlay={() => {
+                      setIsVideoPlaying(true);
+                      if (videoRef.current) {
+                        setLiveDurationMs(
+                          (videoRef.current.duration || 10) * 1000
+                        );
+                      }
+                    }}
+                    onEnded={() => handleAudioEnd(liveIndex)}
+                    onError={() => handleAudioEnd(liveIndex)}
+                  />
+
+                  {/* Name overlay at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-0.5 h-6 rounded-full"
+                        style={{
+                          backgroundColor: speakingAgent.avatar_color,
+                        }}
+                      />
+                      <div>
+                        <p
+                          className="text-xs font-bold"
+                          style={{ color: speakingAgent.avatar_color }}
+                        >
+                          {speakingAgent.name}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          {speakingAgent.role}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </motion.div>
+              </div>
+            </div>
 
-              {roundMsgs.map((msg, idx) => {
-                const globalIndex = messages.indexOf(msg);
-                const isLive = globalIndex === liveIndex && globalIndex > finishedIndex;
-                const hasPlayed = globalIndex <= finishedIndex;
-                const isWaiting = globalIndex > liveIndex;
-                const agentIndex = setup.agents.findIndex(
-                  (a) => a.name === msg.agent.name
-                );
-                const isLeftSide = agentIndex % 2 === 0;
+            {/* Speech text below */}
+            <motion.div
+              key={liveIndex}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card rounded-xl p-3"
+              style={{
+                borderColor: liveMessage.agent.avatar_color + "20",
+              }}
+            >
+              <TypingText
+                text={liveMessage.content}
+                durationMs={liveDurationMs}
+                paused={false}
+                className="text-sm text-gray-200 leading-relaxed"
+              />
+            </motion.div>
+          </div>
+        ) : (
+          /* ── Static Avatar Mode: spotlight layout ── */
+          <>
+            <div className="flex items-center justify-center gap-6 md:gap-10">
+              {setup.agents.map((agent) => {
+                const isSpeaker = speakingAgentName === agent.name;
+                const isThinkingAgent =
+                  showThinking && thinkingAgent === agent.name;
+                const isOtherSpeaking =
+                  speakingAgentName && !isSpeaker && !isThinkingAgent;
 
-                if (isWaiting) return null;
+                let avatarState:
+                  | "idle"
+                  | "speaking"
+                  | "listening"
+                  | "thinking" = "idle";
+                if (isSpeaker) avatarState = "speaking";
+                else if (isThinkingAgent) avatarState = "thinking";
+                else if (isOtherSpeaking) avatarState = "listening";
 
                 return (
                   <motion.div
-                    key={`${roundName}-${idx}`}
-                    initial={{ opacity: 0, y: 20, x: isLeftSide ? -20 : 20 }}
-                    animate={{ opacity: 1, y: 0, x: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                    className={`flex gap-3 mb-3 ${
-                      isLeftSide ? "flex-row" : "flex-row-reverse"
-                    }`}
+                    key={agent.name}
+                    layout
+                    className="flex flex-col items-center gap-2"
+                    animate={{
+                      opacity: isSpeaker || !speakingAgentName ? 1 : 0.7,
+                    }}
+                    transition={{ duration: 0.4 }}
                   >
-                    <div className="flex-shrink-0 mt-1">
-                      <AgentAvatar
-                        agent={msg.agent}
-                        isSpeaking={speakingAgentName === msg.agent.name && isLive}
-                        size="sm"
-                      />
+                    <AnimatedAvatar
+                      avatarImage={agent.avatar_image}
+                      agentName={agent.name}
+                      agentColor={agent.avatar_color}
+                      state={avatarState}
+                      getAmplitude={isSpeaker ? getAmplitude : undefined}
+                      size={isSpeaker ? "lg" : "sm"}
+                    />
+                    <div className="text-center min-w-[80px] max-w-[160px]">
+                      <p
+                        className={`font-semibold leading-tight ${
+                          isSpeaker ? "text-sm" : "text-xs"
+                        }`}
+                        style={{ color: agent.avatar_color }}
+                      >
+                        {agent.name}
+                      </p>
+                      <p
+                        className={`text-gray-400 leading-tight ${
+                          isSpeaker ? "text-xs" : "text-[10px]"
+                        }`}
+                      >
+                        {agent.role}
+                      </p>
+                      <span
+                        className={`inline-block mt-1 text-[9px] px-2 py-0.5 rounded-full font-semibold ${
+                          agent.stance === "for"
+                            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"
+                            : agent.stance === "against"
+                              ? "bg-red-500/15 text-red-300 border border-red-500/20"
+                              : "bg-amber-500/15 text-amber-300 border border-amber-500/20"
+                        }`}
+                      >
+                        {agent.stance.toUpperCase()}
+                      </span>
                     </div>
-
-                    <motion.div
-                      className={`glass-card rounded-2xl p-4 max-w-[70%] ${
-                        isLeftSide ? "rounded-tl-sm" : "rounded-tr-sm"
-                      }`}
-                      style={{
-                        borderColor: msg.agent.avatar_color + "30",
-                        boxShadow: isLive
-                          ? `0 0 20px ${msg.agent.avatar_color}10`
-                          : "none",
-                      }}
-                      whileHover={{ scale: 1.01 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span
-                          className="text-sm font-bold"
-                          style={{ color: msg.agent.avatar_color }}
-                        >
-                          {msg.agent.name}
-                        </span>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                            msg.agent.stance === "for"
-                              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"
-                              : msg.agent.stance === "against"
-                                ? "bg-red-500/15 text-red-300 border border-red-500/20"
-                                : "bg-amber-500/15 text-amber-300 border border-amber-500/20"
-                          }`}
-                        >
-                          {msg.agent.stance.toUpperCase()}
-                        </span>
-                      </div>
-
-                      {isLive ? (
-                        <TypingText
-                          text={msg.content}
-                          durationMs={liveDurationMs}
-                          className="text-sm text-gray-200 leading-relaxed"
-                        />
-                      ) : hasPlayed ? (
-                        <p className="text-sm text-gray-200 leading-relaxed">
-                          {msg.content}
-                        </p>
-                      ) : null}
-                    </motion.div>
                   </motion.div>
                 );
               })}
             </div>
-          ))}
-        </AnimatePresence>
 
-        {/* Thinking indicator - only shown when no audio is playing */}
-        {showThinking && (
+            <AnimatePresence mode="wait">
+              {liveMessage && (
+                <motion.div
+                  key={liveIndex}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3 }}
+                  className="mt-4 glass-card rounded-2xl p-4 max-w-2xl mx-auto"
+                  style={{
+                    borderColor: liveMessage.agent.avatar_color + "40",
+                    boxShadow: `0 0 20px ${liveMessage.agent.avatar_color}10`,
+                  }}
+                >
+                  <TypingText
+                    text={liveMessage.content}
+                    durationMs={liveDurationMs}
+                    paused={paused}
+                    className="text-sm text-gray-200 leading-relaxed text-center"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+
+        {/* Thinking indicator */}
+        {showThinking && !liveMessage && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="flex justify-center py-3"
+            className="mt-4 flex justify-center"
           >
             <div className="glass-card rounded-full px-5 py-2 flex items-center gap-3">
               <div className="flex gap-1">
@@ -337,6 +536,95 @@ export default function DebateStage({
           </motion.div>
         )}
       </div>
+
+      {/* Message History */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto space-y-1 pr-1 min-h-0"
+      >
+        {Object.entries(historyByRound).map(([roundName, roundMsgs]) => (
+          <div key={roundName}>
+            <div className="text-center my-2">
+              <span className="inline-flex items-center gap-1.5 text-[10px] text-indigo-300/60 font-medium uppercase tracking-wider">
+                <span>{ROUND_ICONS[roundName] || ""}</span>
+                {roundName}
+              </span>
+            </div>
+            {roundMsgs.map((msg, idx) => (
+              <motion.div
+                key={`${roundName}-${idx}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.02] transition-colors"
+              >
+                <span
+                  className="text-xs font-bold flex-shrink-0 min-w-[100px] text-right"
+                  style={{ color: msg.agent.avatar_color }}
+                >
+                  {msg.agent.name}:
+                </span>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  {msg.content}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Stop Confirmation */}
+      <AnimatePresence>
+        {showStopConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="glass-card-strong rounded-2xl p-6 max-w-sm mx-4 text-center"
+            >
+              <div className="text-4xl mb-3">{"\u26A0\uFE0F"}</div>
+              <h3 className="text-lg font-bold text-white mb-2">
+                Stop Discussion?
+              </h3>
+              <p className="text-sm text-gray-400 mb-5">
+                This will end the current debate and return to the main screen.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    setShowStopConfirm(false);
+                    resume();
+                    if (videoRef.current) videoRef.current.play();
+                  }}
+                  className="px-5 py-2 rounded-xl text-sm font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowStopConfirm(false);
+                    stop();
+                    if (videoRef.current) {
+                      videoRef.current.pause();
+                      videoRef.current.src = "";
+                    }
+                    setIsVideoPlaying(false);
+                    onStop?.();
+                  }}
+                  className="px-5 py-2 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-all shadow-lg shadow-red-500/25"
+                >
+                  Stop Debate
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
