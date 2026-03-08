@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Multi-Agent Debate AI",
-  description: "AI-powered multi-agent debate platform",
+  title: "Debate 2 Decision AI",
+  description: "Your AI decision council for every complex question.",
 };
 
 export default function RootLayout({

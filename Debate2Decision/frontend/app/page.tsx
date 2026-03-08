@@ -35,9 +35,9 @@ export default function Home() {
   }, [disconnect]);
 
   const handleStartDebate = useCallback(
-    (topic: string, language: string = "english") => {
+    (topic: string, language: string = "english", demo: boolean = false, transcript?: string) => {
       setAudioAllDone(false);
-      startDebate(topic, language);
+      startDebate(topic, language, demo, transcript);
     },
     [startDebate]
   );
@@ -147,9 +147,9 @@ export default function Home() {
           <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm">
             {"\u2696\uFE0F"}
           </span>
-          Multi-Agent{" "}
+          Debate 2 Decision{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
-            Debate AI
+            AI
           </span>
         </h1>
         <button
@@ -170,6 +170,7 @@ export default function Home() {
             activeAgent={activeAgent}
             thinkingAgent={thinkingAgent}
             onAllAudioDone={handleAllAudioDone}
+            onStop={handleDisconnect}
             debateFinishedFromServer={debateDataDone}
           />
         </div>

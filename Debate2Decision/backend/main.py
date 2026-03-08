@@ -1,11 +1,19 @@
 import json
+import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from models import DebateRequest
-from orchestrator import generate_debate_setup
-from debate_engine import DebateEngine
+from orchestrator import generate_debate_setup, generate_debate_from_transcript
+from debate_engine import DebateEngine, ROUND_NAMES
+from demo_data import (
+    DEMO_SETUP, DEMO_MESSAGES, DEMO_VERDICT,
+    DEMO_TRANSCRIPT_SETUP, DEMO_TRANSCRIPT_MESSAGES, DEMO_TRANSCRIPT_VERDICT,
+)
+from tts import generate_speech
+from avatar_generator import generate_all_avatars
+from video_generator import generate_talk_video, is_video_enabled
 
-app = FastAPI(title="Multi-Agent Debate AI")
+app = FastAPI(title="Debate 2 Decision AI")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,16 +37,38 @@ async def debate_websocket(websocket: WebSocket):
         data = await websocket.receive_text()
         request = DebateRequest(**json.loads(data))
 
-        await websocket.send_text(json.dumps({
-            "type": "status",
-            "data": {"message": "Analyzing topic and generating debate personas..."},
-        }))
+        if request.demo and request.transcript:
+            await _run_demo_debate(websocket, DEMO_TRANSCRIPT_SETUP, DEMO_TRANSCRIPT_MESSAGES, DEMO_TRANSCRIPT_VERDICT)
+        elif request.demo:
+            await _run_demo_debate(websocket, DEMO_SETUP, DEMO_MESSAGES, DEMO_VERDICT)
+        else:
+            if request.transcript:
+                await websocket.send_text(json.dumps({
+                    "type": "status",
+                    "data": {"message": "Analyzing chat transcript and extracting debate topic..."},
+                }))
+                setup = await generate_debate_from_transcript(request.transcript, request.language)
+            else:
+                await websocket.send_text(json.dumps({
+                    "type": "status",
+                    "data": {"message": "Analyzing topic and generating debate personas..."},
+                }))
+                setup = await generate_debate_setup(request.topic, request.language)
 
-        setup = await generate_debate_setup(request.topic, request.language)
-        engine = DebateEngine(setup)
+            await websocket.send_text(json.dumps({
+                "type": "status",
+                "data": {"message": "Generating AI portraits for debate personas..."},
+            }))
 
-        async for event in engine.run_debate():
-            await websocket.send_text(json.dumps(event))
+            avatars = await generate_all_avatars(setup.agents)
+            for i, avatar in enumerate(avatars):
+                if avatar:
+                    setup.agents[i].avatar_image = avatar
+
+            engine = DebateEngine(setup)
+
+            async for event in engine.run_debate():
+                await websocket.send_text(json.dumps(event))
 
     except WebSocketDisconnect:
         pass
@@ -48,6 +78,100 @@ async def debate_websocket(websocket: WebSocket):
             "data": {"message": str(e)},
         }))
         await websocket.close()
+
+
+async def _run_demo_debate(websocket: WebSocket, demo_setup=None, demo_messages=None, demo_verdict=None):
+    demo_setup = demo_setup or DEMO_SETUP
+    demo_messages = demo_messages or DEMO_MESSAGES
+    demo_verdict = demo_verdict or DEMO_VERDICT
+
+    await websocket.send_text(json.dumps({
+        "type": "status",
+        "data": {"message": "Generating AI portraits for debate personas..."},
+    }))
+
+    avatars = await generate_all_avatars(demo_setup.agents)
+    setup_data = demo_setup.model_dump()
+    for i, avatar in enumerate(avatars):
+        if avatar:
+            setup_data["agents"][i]["avatar_image"] = avatar
+
+    await websocket.send_text(json.dumps({
+        "type": "status",
+        "data": {"message": "Loading demo debate..."},
+    }))
+    await asyncio.sleep(1)
+
+    await websocket.send_text(json.dumps({
+        "type": "setup",
+        "data": setup_data,
+    }))
+
+    use_video = is_video_enabled()
+
+    for round_num in range(len(ROUND_NAMES)):
+        await websocket.send_text(json.dumps({
+            "type": "round_start",
+            "data": {"round_number": round_num, "round_name": ROUND_NAMES[round_num]},
+        }))
+
+        round_msgs = [m for m in demo_messages if m.round_number == round_num]
+        for msg in round_msgs:
+            await websocket.send_text(json.dumps({
+                "type": "agent_thinking",
+                "data": {"agent_name": msg.agent.name},
+            }))
+
+            agent_index = next(
+                (i for i, a in enumerate(demo_setup.agents) if a.name == msg.agent.name), 0
+            )
+
+            video_url = None
+            audio_base64 = None
+
+            if use_video:
+                avatar_img = setup_data["agents"][agent_index].get("avatar_image")
+                if avatar_img:
+                    await websocket.send_text(json.dumps({
+                        "type": "status",
+                        "data": {"message": f"Generating video for {msg.agent.name}..."},
+                    }))
+                    video_url = await generate_talk_video(
+                        avatar_img, msg.content, msg.agent.gender, msg.agent.accent
+                    )
+
+            if not video_url:
+                audio_base64 = await generate_speech(
+                    msg.content, msg.agent.gender, msg.agent.accent, agent_index, demo_setup.language
+                )
+
+            msg_data = {**msg.model_dump(), "audio": audio_base64, "video_url": video_url}
+            await websocket.send_text(json.dumps({
+                "type": "agent_message",
+                "data": msg_data,
+            }))
+            await asyncio.sleep(0.5)
+
+        await websocket.send_text(json.dumps({
+            "type": "round_end",
+            "data": {"round_number": round_num, "round_name": ROUND_NAMES[round_num]},
+        }))
+
+    await websocket.send_text(json.dumps({
+        "type": "status",
+        "data": {"message": "Judges are deliberating..."},
+    }))
+    await asyncio.sleep(2)
+
+    await websocket.send_text(json.dumps({
+        "type": "verdict",
+        "data": demo_verdict,
+    }))
+
+    await websocket.send_text(json.dumps({
+        "type": "debate_end",
+        "data": {},
+    }))
 
 
 if __name__ == "__main__":

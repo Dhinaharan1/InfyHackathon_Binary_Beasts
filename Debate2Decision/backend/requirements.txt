@@ -5,3 +5,5 @@ httpx
 pydantic
 python-dotenv
 edge-tts
+gradio_client
+Pillow
