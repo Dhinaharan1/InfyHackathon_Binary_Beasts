@@ -5,7 +5,9 @@ import { useDebateWebSocket } from "@/hooks/useDebateWebSocket";
 import TopicInput from "@/components/TopicInput";
 import DebateStage from "@/components/DebateStage";
 import VerdictCard from "@/components/VerdictCard";
-import { motion } from "framer-motion";
+import InterjectionInput from "@/components/InterjectionInput";
+import UserVote from "@/components/UserVote";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const {
@@ -18,12 +20,18 @@ export default function Home() {
     verdict,
     error,
     statusMessage,
+    pauseData,
+    interjections,
+    analyses,
     startDebate,
     disconnect,
+    sendInterjection,
+    skipInterjection,
   } = useDebateWebSocket();
 
-  // Onlyy show verdict after all audio has finished playing
+  // Only show verdict after all audio has finished playing
   const [audioAllDone, setAudioAllDone] = useState(false);
+  const [userVote, setUserVote] = useState<string | null | undefined>(undefined); // undefined = not voted yet
 
   const handleAllAudioDone = useCallback(() => {
     setAudioAllDone(true);
@@ -31,19 +39,28 @@ export default function Home() {
 
   const handleDisconnect = useCallback(() => {
     setAudioAllDone(false);
+    setUserVote(undefined);
     disconnect();
   }, [disconnect]);
 
   const handleStartDebate = useCallback(
-    (topic: string, language: string = "english") => {
+    (topic: string, language: string = "english", numAgents: number = 3, numRounds: number = 4, personaConstraints: string = "") => {
       setAudioAllDone(false);
-      startDebate(topic, language);
+      setUserVote(undefined);
+      startDebate(topic, language, numAgents, numRounds, personaConstraints);
     },
     [startDebate]
   );
 
-  // Verdict is ready to show only when server sent it AND all audio finished
-  const showVerdict = verdict && audioAllDone;
+  const handleUserVote = useCallback((agentName: string | null) => {
+    setUserVote(agentName);
+  }, []);
+
+  // Show vote screen when audio done, verdict ready, but user hasn't voted yet
+  const showVoteScreen = verdict && audioAllDone && userVote === undefined;
+
+  // Verdict is ready to show only after voting (or skipping)
+  const showVerdict = verdict && audioAllDone && userVote !== undefined;
 
   // Server says debate data is done (verdict received or finished status)
   const debateDataDone =
@@ -171,13 +188,31 @@ export default function Home() {
             thinkingAgent={thinkingAgent}
             onAllAudioDone={handleAllAudioDone}
             debateFinishedFromServer={debateDataDone}
+            analyses={analyses}
           />
         </div>
       )}
 
-      {/* Verdict - only shown after all audio has finished */}
+      {/* Audience Interjection */}
+      <AnimatePresence>
+        {status === "round_pause" && pauseData && (
+          <InterjectionInput
+            nextRound={pauseData.nextRound}
+            timeout={pauseData.timeout}
+            onSubmit={sendInterjection}
+            onSkip={skipInterjection}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* User Vote */}
+      {showVoteScreen && setup && (
+        <UserVote agents={setup.agents} onVote={handleUserVote} />
+      )}
+
+      {/* Verdict - shown after user votes or skips */}
       {showVerdict && setup && (
-        <VerdictCard verdict={verdict} topic={setup.topic} />
+        <VerdictCard verdict={verdict} topic={setup.topic} userVote={userVote} />
       )}
 
       {/* Status footer */}

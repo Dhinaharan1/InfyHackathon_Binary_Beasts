@@ -6,9 +6,11 @@ import { Verdict } from "@/hooks/useDebateWebSocket";
 interface Props {
   verdict: Verdict;
   topic?: string;
+  userVote?: string | null;
 }
 
-export default function VerdictCard({ verdict, topic }: Props) {
+export default function VerdictCard({ verdict, topic, userVote }: Props) {
+  const userAgreed = userVote ? userVote === verdict.winner : null;
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
@@ -64,6 +66,36 @@ export default function VerdictCard({ verdict, topic }: Props) {
             </p>
           )}
         </motion.div>
+
+        {/* User Vote Comparison */}
+        {userVote && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.55 }}
+            className={`rounded-xl p-3 mb-4 text-center border ${
+              userAgreed
+                ? "bg-emerald-500/10 border-emerald-500/20"
+                : "bg-amber-500/10 border-amber-500/20"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-lg">{userAgreed ? "\uD83C\uDF89" : "\uD83E\uDD14"}</span>
+              <div>
+                <p className={`text-sm font-medium ${userAgreed ? "text-emerald-300" : "text-amber-300"}`}>
+                  {userAgreed
+                    ? "You agreed with the AI judge!"
+                    : `You voted for ${userVote}`}
+                </p>
+                {!userAgreed && (
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    The AI judge chose {verdict.winner} instead
+                  </p>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Clear conclusion */}
         {verdict.conclusion && (

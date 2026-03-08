@@ -31,6 +31,27 @@ export interface DebateSetup {
   total_rounds: number;
 }
 
+export interface FactCheckClaim {
+  claim: string;
+  verdict: "accurate" | "misleading" | "unverifiable" | "partially_true";
+  explanation: string;
+}
+
+export interface AnalysisResult {
+  agent_name: string;
+  round_number: number;
+  fact_check: {
+    claims: FactCheckClaim[];
+    overall_accuracy: "high" | "medium" | "low";
+  };
+  sentiment: {
+    persuasiveness: number;
+    emotional_impact: number;
+    factual_strength: number;
+    overall: number;
+  };
+}
+
 export interface Verdict {
   winner: string;
   winner_role: string;
@@ -45,6 +66,7 @@ export type DebateStatus =
   | "connecting"
   | "generating"
   | "debating"
+  | "round_pause"
   | "verdict"
   | "finished"
   | "error";
@@ -60,6 +82,9 @@ export function useDebateWebSocket() {
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("");
+  const [pauseData, setPauseData] = useState<{ nextRound: string; timeout: number } | null>(null);
+  const [interjections, setInterjections] = useState<string[]>([]);
+  const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const statusRef = useRef<DebateStatus>("idle");
 
@@ -69,7 +94,7 @@ export function useDebateWebSocket() {
   }, []);
 
   const startDebate = useCallback(
-    (topic: string, language: string = "english") => {
+    (topic: string, language: string = "english", numAgents: number = 3, numRounds: number = 4, personaConstraints: string = "") => {
       updateStatus("connecting");
       setMessages([]);
       setSetup(null);
@@ -80,13 +105,16 @@ export function useDebateWebSocket() {
       setActiveAgent(null);
       setThinkingAgent(null);
       setStatusMessage("");
+      setPauseData(null);
+      setInterjections([]);
+      setAnalyses([]);
 
       const ws = new WebSocket("ws://localhost:8000/ws/debate");
       wsRef.current = ws;
 
       ws.onopen = () => {
         updateStatus("generating");
-        ws.send(JSON.stringify({ topic, language }));
+        ws.send(JSON.stringify({ topic, language, num_agents: numAgents, num_rounds: numRounds, persona_constraints: personaConstraints }));
       };
 
       ws.onmessage = (event) => {
@@ -108,6 +136,10 @@ export function useDebateWebSocket() {
           case "round_start":
             setCurrentRound(msg.data.round_name);
             setCurrentRoundNum(msg.data.round_number);
+            setPauseData(null);
+            if (statusRef.current === "round_pause") {
+              updateStatus("debating");
+            }
             break;
 
           case "agent_thinking":
@@ -123,6 +155,24 @@ export function useDebateWebSocket() {
           case "round_end":
             setActiveAgent(null);
             setThinkingAgent(null);
+            break;
+
+          case "analysis":
+            setAnalyses((prev) => [...prev, msg.data as AnalysisResult]);
+            break;
+
+          case "round_pause":
+            setPauseData({
+              nextRound: msg.data.next_round,
+              timeout: msg.data.timeout,
+            });
+            updateStatus("round_pause");
+            break;
+
+          case "interjection_received":
+            setInterjections((prev) => [...prev, msg.data.content]);
+            setPauseData(null);
+            updateStatus("debating");
             break;
 
           case "verdict":
@@ -166,6 +216,20 @@ export function useDebateWebSocket() {
     [updateStatus]
   );
 
+  const sendInterjection = useCallback((content: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "interjection", content }));
+    }
+  }, []);
+
+  const skipInterjection = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "skip" }));
+    }
+    setPauseData(null);
+    updateStatus("debating");
+  }, [updateStatus]);
+
   const disconnect = useCallback(() => {
     wsRef.current?.close();
     updateStatus("idle");
@@ -182,7 +246,12 @@ export function useDebateWebSocket() {
     verdict,
     error,
     statusMessage,
+    pauseData,
+    interjections,
+    analyses,
     startDebate,
     disconnect,
+    sendInterjection,
+    skipInterjection,
   };
 }

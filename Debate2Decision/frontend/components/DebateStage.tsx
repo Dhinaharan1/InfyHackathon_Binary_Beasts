@@ -4,7 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import AgentAvatar from "./AgentAvatar";
 import TypingText from "./TypingText";
 import { useSpeechSynthesis } from "./SpeechSynthesis";
-import { DebateMessage, DebateSetup } from "@/hooks/useDebateWebSocket";
+import { DebateMessage, DebateSetup, AnalysisResult } from "@/hooks/useDebateWebSocket";
+import FactCheckBadge from "./FactCheckBadge";
+import SentimentChart from "./SentimentChart";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 interface Props {
@@ -15,6 +17,7 @@ interface Props {
   thinkingAgent?: string | null;
   onAllAudioDone?: () => void;
   debateFinishedFromServer?: boolean;
+  analyses?: AnalysisResult[];
 }
 
 const ROUND_ICONS: Record<string, string> = {
@@ -32,6 +35,7 @@ export default function DebateStage({
   thinkingAgent,
   onAllAudioDone,
   debateFinishedFromServer,
+  analyses = [],
 }: Props) {
   const { speak, stop } = useSpeechSynthesis();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -204,6 +208,11 @@ export default function DebateStage({
         </div>
       </div>
 
+      {/* Sentiment Chart */}
+      {analyses.length > 0 && (
+        <SentimentChart analyses={analyses} agents={setup.agents} />
+      )}
+
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2 pr-1">
         <AnimatePresence>
@@ -296,6 +305,13 @@ export default function DebateStage({
                           {msg.content}
                         </p>
                       ) : null}
+
+                      {hasPlayed && (() => {
+                        const a = analyses.find(
+                          (an) => an.agent_name === msg.agent.name && an.round_number === msg.round_number
+                        );
+                        return a ? <FactCheckBadge analysis={a} /> : null;
+                      })()}
                     </motion.div>
                   </motion.div>
                 );

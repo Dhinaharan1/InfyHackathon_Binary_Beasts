@@ -33,3 +33,6 @@ class DebateSetup(BaseModel):
 class DebateRequest(BaseModel):
     topic: str
     language: str = "english"  # "english", "hindi", "tamil"
+    num_agents: int = 3  # 2-5
+    num_rounds: int = 4  # 2-4
+    persona_constraints: str = ""  # e.g. "include someone from healthcare"

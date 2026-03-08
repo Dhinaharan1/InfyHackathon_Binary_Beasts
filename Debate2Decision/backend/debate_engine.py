@@ -1,16 +1,27 @@
 import json
 import asyncio
 from typing import AsyncGenerator
-from orchestrator import call_groq
+from orchestrator import call_groq, analyze_message
 from tts import generate_speech
 from models import AgentPersona, DebateSetup, DebateMessage
 
-ROUND_NAMES = [
+ALL_ROUND_NAMES = [
     "Opening Statements",
     "Cross-Examination",
     "Rebuttals",
     "Closing Statements",
 ]
+
+ROUND_SELECTIONS = {
+    2: [0, 3],
+    3: [0, 1, 3],
+    4: [0, 1, 2, 3],
+}
+
+
+def get_round_names(num_rounds: int) -> list[str]:
+    indices = ROUND_SELECTIONS.get(max(2, min(4, num_rounds)), ROUND_SELECTIONS[4])
+    return [ALL_ROUND_NAMES[i] for i in indices]
 
 AGENT_PROMPT = """You are {name}, a real person - a {role} in the {industry} industry.
 Your background: {accent} speaker, {gender}.
@@ -95,9 +106,14 @@ Score 0-100 based on: authenticity, emotional connection, strength of arguments,
 
 
 class DebateEngine:
-    def __init__(self, setup: DebateSetup):
+    def __init__(self, setup: DebateSetup, num_rounds: int = 4):
         self.setup = setup
         self.transcript: list[dict] = []
+        self.round_names = get_round_names(num_rounds)
+        self.interjection: str | None = None
+
+    def add_interjection(self, text: str):
+        self.interjection = text
 
     def _build_context(self, round_num: int) -> str:
         if not self.transcript:
@@ -108,7 +124,7 @@ class DebateEngine:
 
         context_parts = []
         if prev_round_msgs:
-            context_parts.append(f"Previous round ({ROUND_NAMES[round_num - 1]}):")
+            context_parts.append(f"Previous round ({self.round_names[round_num - 1]}):")
             for m in prev_round_msgs:
                 context_parts.append(f"  {m['agent_name']} ({m['agent_role']}): {m['content']}")
 
@@ -117,10 +133,14 @@ class DebateEngine:
             for m in current_round_msgs:
                 context_parts.append(f"  {m['agent_name']} ({m['agent_role']}): {m['content']}")
 
+        if self.interjection:
+            context_parts.append(f"\nAudience question/comment: \"{self.interjection}\"")
+            context_parts.append("Please address this audience input in your response if relevant.")
+
         return "\n".join(context_parts) if context_parts else "No arguments made yet."
 
-    async def run_agent_turn(self, agent: AgentPersona, round_num: int) -> tuple[str, str]:
-        round_name = ROUND_NAMES[round_num]
+    async def run_agent_turn(self, agent: AgentPersona, round_num: int) -> tuple[str, str, dict | None]:
+        round_name = self.round_names[round_num]
         context = self._build_context(round_num)
 
         language = self.setup.language
@@ -165,11 +185,16 @@ class DebateEngine:
         agent_index = next(
             (i for i, a in enumerate(self.setup.agents) if a.name == agent.name), 0
         )
-        audio_base64 = await generate_speech(
+
+        tts_task = generate_speech(
             content, agent.gender, agent.accent, agent_index, self.setup.language
         )
+        analysis_task = analyze_message(
+            content, agent.name, agent.role, agent.stance, self.setup.topic
+        )
+        audio_base64, analysis = await asyncio.gather(tts_task, analysis_task)
 
-        return content, audio_base64
+        return content, audio_base64, analysis
 
     async def generate_verdict(self) -> dict:
         transcript_text = ""
@@ -204,12 +229,12 @@ class DebateEngine:
             "data": self.setup.model_dump(),
         }
 
-        for round_num in range(len(ROUND_NAMES)):
+        for round_num in range(len(self.round_names)):
             yield {
                 "type": "round_start",
                 "data": {
                     "round_number": round_num,
-                    "round_name": ROUND_NAMES[round_num],
+                    "round_name": self.round_names[round_num],
                 },
             }
 
@@ -219,19 +244,29 @@ class DebateEngine:
                     "data": {"agent_name": agent.name},
                 }
 
-                content, audio_base64 = await self.run_agent_turn(agent, round_num)
+                content, audio_base64, analysis = await self.run_agent_turn(agent, round_num)
                 yield {
                     "type": "agent_message",
                     "data": {
                         **DebateMessage(
                             agent=agent,
                             content=content,
-                            round_name=ROUND_NAMES[round_num],
+                            round_name=self.round_names[round_num],
                             round_number=round_num,
                         ).model_dump(),
                         "audio": audio_base64,
                     },
                 }
+
+                if analysis:
+                    yield {
+                        "type": "analysis",
+                        "data": {
+                            "agent_name": agent.name,
+                            "round_number": round_num,
+                            **analysis,
+                        },
+                    }
 
                 await asyncio.sleep(2.5)
 
@@ -239,9 +274,20 @@ class DebateEngine:
                 "type": "round_end",
                 "data": {
                     "round_number": round_num,
-                    "round_name": ROUND_NAMES[round_num],
+                    "round_name": self.round_names[round_num],
                 },
             }
+
+            if round_num < len(self.round_names) - 1:
+                self.interjection = None
+                yield {
+                    "type": "round_pause",
+                    "data": {
+                        "round_number": round_num,
+                        "next_round": self.round_names[round_num + 1],
+                        "timeout": 30,
+                    },
+                }
 
         yield {
             "type": "status",
