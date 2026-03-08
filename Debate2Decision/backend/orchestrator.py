@@ -1,7 +1,7 @@
 import json
 import asyncio
 import httpx
-from config import GROQ_API_KEY, GROQ_MODEL, GROQ_API_URL, MAX_AGENTS
+from config import GROQ_API_KEY, GROQ_MODEL, GROQ_API_URL, MAX_AGENTS, MIN_AGENTS, MAX_AGENTS_LIMIT, MIN_ROUNDS, MAX_ROUNDS
 from models import AgentPersona, DebateSetup
 
 AVATAR_COLORS = ["#6366F1", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6"]
@@ -134,9 +134,18 @@ Return ONLY valid JSON (no markdown, no code fences):
     "emotional_impact": 0-100,
     "factual_strength": 0-100,
     "overall": 0-100
-  }}
+  }},
+  "fact_check": [
+    {{
+      "claim": "the specific factual claim made",
+      "verdict": "true" or "mostly_true" or "unverified" or "misleading" or "false",
+      "confidence": 0-100,
+      "explanation": "brief 1-sentence explanation"
+    }}
+  ]
 }}
 
+For fact_check: identify 1-3 key factual claims in the argument. If the argument is purely opinion-based, return an empty array.
 Score generously but differentiate clearly between strong and weak arguments. Be fair across all stances.
 """
 
@@ -177,7 +186,87 @@ LANGUAGE_CONFIG = {
         "accent_note": "All agents should be Tamil with Tamil names from different regions of Tamil Nadu.",
         "accent_options": '"indian"',
     },
+    "telugu": {
+        "instruction": "All debate responses must be in Telugu (Telugu script). Use natural spoken Telugu.",
+        "accent_note": "All agents should be Telugu speakers with Telugu names.",
+        "accent_options": '"indian"',
+    },
+    "kannada": {
+        "instruction": "All debate responses must be in Kannada (Kannada script). Use natural spoken Kannada.",
+        "accent_note": "All agents should be Kannada speakers with Kannada names.",
+        "accent_options": '"indian"',
+    },
+    "malayalam": {
+        "instruction": "All debate responses must be in Malayalam (Malayalam script). Use natural spoken Malayalam.",
+        "accent_note": "All agents should be Malayalam speakers with Malayalam names.",
+        "accent_options": '"indian"',
+    },
+    "bengali": {
+        "instruction": "All debate responses must be in Bengali (Bengali script). Use natural spoken Bengali.",
+        "accent_note": "All agents should be Bengali speakers with Bengali names.",
+        "accent_options": '"indian"',
+    },
+    "marathi": {
+        "instruction": "All debate responses must be in Marathi (Devanagari script). Use natural spoken Marathi.",
+        "accent_note": "All agents should be Marathi speakers with Marathi names.",
+        "accent_options": '"indian"',
+    },
+    "gujarati": {
+        "instruction": "All debate responses must be in Gujarati (Gujarati script). Use natural spoken Gujarati.",
+        "accent_note": "All agents should be Gujarati speakers with Gujarati names.",
+        "accent_options": '"indian"',
+    },
+    "spanish": {
+        "instruction": "All debate responses must be in Spanish. Use natural conversational Spanish.",
+        "accent_note": "Mix of Spanish-speaking backgrounds with culturally appropriate names.",
+        "accent_options": '"american"',
+    },
+    "french": {
+        "instruction": "All debate responses must be in French. Use natural conversational French.",
+        "accent_note": "Mix of French-speaking backgrounds with culturally appropriate names.",
+        "accent_options": '"american"',
+    },
+    "german": {
+        "instruction": "All debate responses must be in German. Use natural conversational German.",
+        "accent_note": "Mix of German-speaking backgrounds with culturally appropriate names.",
+        "accent_options": '"american"',
+    },
+    "japanese": {
+        "instruction": "All debate responses must be in Japanese. Use natural conversational Japanese.",
+        "accent_note": "All agents should be Japanese with Japanese names.",
+        "accent_options": '"american"',
+    },
+    "chinese": {
+        "instruction": "All debate responses must be in Mandarin Chinese (Simplified Chinese characters). Use natural conversational Mandarin.",
+        "accent_note": "All agents should be Chinese with Chinese names.",
+        "accent_options": '"american"',
+    },
+    "arabic": {
+        "instruction": "All debate responses must be in Arabic (Arabic script). Use Modern Standard Arabic.",
+        "accent_note": "Mix of Arabic-speaking backgrounds with culturally appropriate names.",
+        "accent_options": '"american"',
+    },
+    "portuguese": {
+        "instruction": "All debate responses must be in Portuguese. Use natural conversational Brazilian Portuguese.",
+        "accent_note": "Mix of Portuguese-speaking backgrounds with culturally appropriate names.",
+        "accent_options": '"american"',
+    },
+    "korean": {
+        "instruction": "All debate responses must be in Korean (Hangul). Use natural conversational Korean.",
+        "accent_note": "All agents should be Korean with Korean names.",
+        "accent_options": '"american"',
+    },
 }
+
+
+def get_language_config(language: str) -> dict:
+    if language in LANGUAGE_CONFIG:
+        return LANGUAGE_CONFIG[language]
+    return {
+        "instruction": f"All debate responses must be in {language}. Use natural conversational {language}.",
+        "accent_note": f"Agents should have culturally appropriate names for {language} speakers.",
+        "accent_options": '"american"',
+    }
 
 
 TRANSCRIPT_PROMPT = """You are an expert debate organizer. You are given a chat transcript or conversation from a team discussion, forum, or meeting. Your job is to:
@@ -218,14 +307,17 @@ Return ONLY valid JSON (no markdown, no code fences) in this exact format:
 """
 
 
-async def generate_debate_from_transcript(transcript: str, language: str = "english") -> DebateSetup:
-    lang_cfg = LANGUAGE_CONFIG.get(language, LANGUAGE_CONFIG["english"])
+async def generate_debate_from_transcript(transcript: str, language: str = "english", num_agents: int = MAX_AGENTS, num_rounds: int = 4, persona_constraints: str = "") -> DebateSetup:
+    agent_count = max(MIN_AGENTS, min(MAX_AGENTS_LIMIT, num_agents))
+    round_count = max(MIN_ROUNDS, min(MAX_ROUNDS, num_rounds))
+    lang_cfg = get_language_config(language)
+    constraint_text = f"\nADDITIONAL PERSONA CONSTRAINTS: {persona_constraints}" if persona_constraints.strip() else ""
     prompt = TRANSCRIPT_PROMPT.format(
         transcript=transcript,
-        max_agents=MAX_AGENTS,
+        max_agents=agent_count,
         accent_options=lang_cfg["accent_options"],
         accent_note=lang_cfg["accent_note"],
-    )
+    ) + constraint_text
 
     text = await call_groq(prompt, system=f"You are an expert debate organizer. Always respond with valid JSON only. {lang_cfg['instruction']}")
 
@@ -236,7 +328,7 @@ async def generate_debate_from_transcript(transcript: str, language: str = "engl
     data = json.loads(text)
 
     agents = []
-    for i, agent_data in enumerate(data["agents"][:MAX_AGENTS]):
+    for i, agent_data in enumerate(data["agents"][:agent_count]):
         agents.append(AgentPersona(
             name=agent_data["name"],
             role=agent_data["role"],
@@ -255,19 +347,22 @@ async def generate_debate_from_transcript(transcript: str, language: str = "engl
         topic=data.get("topic", "Extracted debate topic"),
         industry=data["industry"],
         agents=agents,
-        total_rounds=4,
+        total_rounds=round_count,
         language=language,
     )
 
 
-async def generate_debate_setup(topic: str, language: str = "english") -> DebateSetup:
-    lang_cfg = LANGUAGE_CONFIG.get(language, LANGUAGE_CONFIG["english"])
+async def generate_debate_setup(topic: str, language: str = "english", num_agents: int = MAX_AGENTS, num_rounds: int = 4, persona_constraints: str = "") -> DebateSetup:
+    agent_count = max(MIN_AGENTS, min(MAX_AGENTS_LIMIT, num_agents))
+    round_count = max(MIN_ROUNDS, min(MAX_ROUNDS, num_rounds))
+    lang_cfg = get_language_config(language)
+    constraint_text = f"\nADDITIONAL PERSONA CONSTRAINTS: {persona_constraints}" if persona_constraints.strip() else ""
     prompt = SETUP_PROMPT.format(
         topic=topic,
-        max_agents=MAX_AGENTS,
+        max_agents=agent_count,
         accent_options=lang_cfg["accent_options"],
         accent_note=lang_cfg["accent_note"],
-    )
+    ) + constraint_text
 
     text = await call_groq(prompt, system=f"You are an expert debate organizer. Always respond with valid JSON only. {lang_cfg['instruction']}")
 
@@ -278,7 +373,7 @@ async def generate_debate_setup(topic: str, language: str = "english") -> Debate
     data = json.loads(text)
 
     agents = []
-    for i, agent_data in enumerate(data["agents"][:MAX_AGENTS]):
+    for i, agent_data in enumerate(data["agents"][:agent_count]):
         agents.append(AgentPersona(
             name=agent_data["name"],
             role=agent_data["role"],
@@ -297,6 +392,6 @@ async def generate_debate_setup(topic: str, language: str = "english") -> Debate
         topic=topic,
         industry=data["industry"],
         agents=agents,
-        total_rounds=4,
+        total_rounds=round_count,
         language=language,
     )

@@ -8,7 +8,10 @@ interface Props {
     topic: string,
     language: string,
     demo?: boolean,
-    transcript?: string
+    transcript?: string,
+    numAgents?: number,
+    numRounds?: number,
+    personaConstraints?: string,
   ) => void;
   isLoading: boolean;
 }
@@ -17,6 +20,18 @@ const LANGUAGES = [
   { code: "english", label: "English", flag: "\uD83C\uDDEC\uD83C\uDDE7", native: "English" },
   { code: "hindi", label: "Hindi", flag: "\uD83C\uDDEE\uD83C\uDDF3", native: "\u0939\u093F\u0928\u094D\u0926\u0940" },
   { code: "tamil", label: "Tamil", flag: "\uD83C\uDDEE\uD83C\uDDF3", native: "\u0BA4\u0BAE\u0BBF\u0BB4\u0BCD" },
+  { code: "telugu", label: "Telugu", flag: "\uD83C\uDDEE\uD83C\uDDF3", native: "\u0C24\u0C46\u0C32\u0C41\u0C17\u0C41" },
+  { code: "kannada", label: "Kannada", flag: "\uD83C\uDDEE\uD83C\uDDF3", native: "\u0C95\u0CA8\u0CCD\u0CA8\u0CA1" },
+  { code: "bengali", label: "Bengali", flag: "\uD83C\uDDEE\uD83C\uDDF3", native: "\u09AC\u09BE\u0982\u09B2\u09BE" },
+  { code: "marathi", label: "Marathi", flag: "\uD83C\uDDEE\uD83C\uDDF3", native: "\u092E\u0930\u093E\u0920\u0940" },
+  { code: "spanish", label: "Spanish", flag: "\uD83C\uDDEA\uD83C\uDDF8", native: "Espa\u00F1ol" },
+  { code: "french", label: "French", flag: "\uD83C\uDDEB\uD83C\uDDF7", native: "Fran\u00E7ais" },
+  { code: "german", label: "German", flag: "\uD83C\uDDE9\uD83C\uDDEA", native: "Deutsch" },
+  { code: "japanese", label: "Japanese", flag: "\uD83C\uDDEF\uD83C\uDDF5", native: "\u65E5\u672C\u8A9E" },
+  { code: "chinese", label: "Chinese", flag: "\uD83C\uDDE8\uD83C\uDDF3", native: "\u4E2D\u6587" },
+  { code: "korean", label: "Korean", flag: "\uD83C\uDDF0\uD83C\uDDF7", native: "\uD55C\uAD6D\uC5B4" },
+  { code: "arabic", label: "Arabic", flag: "\uD83C\uDDF8\uD83C\uDDE6", native: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629" },
+  { code: "portuguese", label: "Portuguese", flag: "\uD83C\uDDE7\uD83C\uDDF7", native: "Portugu\u00EAs" },
 ];
 
 const EXAMPLE_TOPICS: Record<string, { text: string; icon: string }[]> = {
@@ -131,6 +146,11 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
   const [topic, setTopic] = useState("");
   const [transcript, setTranscript] = useState("");
   const [language, setLanguage] = useState("english");
+  const [customLanguage, setCustomLanguage] = useState("");
+  const [numAgents, setNumAgents] = useState(3);
+  const [numRounds, setNumRounds] = useState(4);
+  const [personaConstraints, setPersonaConstraints] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [checking, setChecking] = useState(false);
   const [sensitivityWarning, setSensitivityWarning] = useState<{
     level: string;
@@ -152,14 +172,14 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
       const data = await res.json();
       setSensitivityWarning(data);
     } catch {
-      onSubmit(topic.trim(), language);
+      onSubmit(topic.trim(), language, false, undefined, numAgents, numRounds, personaConstraints);
     }
     setChecking(false);
   };
 
   const handleProceedAnyway = () => {
     setSensitivityWarning(null);
-    onSubmit(topic.trim(), language);
+    onSubmit(topic.trim(), language, false, undefined, numAgents, numRounds, personaConstraints);
   };
 
   const handleUseSuggestion = () => {
@@ -176,7 +196,7 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
   const handleTranscriptSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (transcript.trim())
-      onSubmit("transcript-debate", language, false, transcript.trim());
+      onSubmit("transcript-debate", language, false, transcript.trim(), numAgents, numRounds, personaConstraints);
   };
 
   const currentExamples = EXAMPLE_TOPICS[language] || EXAMPLE_TOPICS.english;
@@ -295,27 +315,130 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
             <label className="text-sm font-medium text-gray-300 block mb-2">
               Debate Language
             </label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-5 gap-1.5 mb-2">
               {LANGUAGES.map((lang) => (
                 <button
                   key={lang.code}
                   type="button"
                   onClick={() => {
                     setLanguage(lang.code);
+                    setCustomLanguage("");
                     setTopic("");
                   }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    language === lang.code
+                  className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-medium transition-all ${
+                    language === lang.code && !customLanguage
                       ? "bg-indigo-600/80 text-white border border-indigo-500/50 shadow-lg shadow-indigo-500/20"
                       : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08] hover:border-indigo-500/30"
                   }`}
+                  title={lang.native}
                 >
-                  <span className="text-lg">{lang.flag}</span>
-                  <span>{lang.label}</span>
-                  <span className="text-xs opacity-60">({lang.native})</span>
+                  <span>{lang.flag}</span>
+                  <span className="truncate">{lang.label}</span>
                 </button>
               ))}
+              <div className="col-span-5 flex gap-2 mt-1">
+                <input
+                  type="text"
+                  value={customLanguage}
+                  onChange={(e) => {
+                    setCustomLanguage(e.target.value);
+                    if (e.target.value.trim()) {
+                      setLanguage(e.target.value.trim().toLowerCase());
+                    } else {
+                      setLanguage("english");
+                    }
+                  }}
+                  placeholder="Or type any language..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                />
+              </div>
             </div>
+          </div>
+
+          {/* Advanced Settings Toggle */}
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-2 text-sm text-gray-400 hover:text-indigo-300 transition-colors"
+            >
+              <motion.span
+                animate={{ rotate: showAdvanced ? 90 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {"\u25B6"}
+              </motion.span>
+              Advanced Settings
+            </button>
+            <AnimatePresence>
+              {showAdvanced && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="grid grid-cols-2 gap-4 mt-3 p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                    <div>
+                      <label className="text-xs font-medium text-gray-400 block mb-1.5">
+                        Number of Agents
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {[2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setNumAgents(n)}
+                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                              numAgents === n
+                                ? "bg-indigo-600/80 text-white border border-indigo-500/50"
+                                : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:border-indigo-500/30"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-400 block mb-1.5">
+                        Number of Rounds
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {[2, 3, 4, 5, 6].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setNumRounds(n)}
+                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                              numRounds === n
+                                ? "bg-indigo-600/80 text-white border border-indigo-500/50"
+                                : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:border-indigo-500/30"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium text-gray-400 block mb-1.5">
+                        Persona Constraints{" "}
+                        <span className="text-gray-600">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={personaConstraints}
+                        onChange={(e) => setPersonaConstraints(e.target.value)}
+                        placeholder='e.g. "include someone from healthcare" or "add a Gen-Z perspective"'
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <AnimatePresence mode="wait">
@@ -502,7 +625,7 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
         >
           {[
             { icon: "\uD83E\uDD16", label: "AI Personas" },
-            { icon: "\uD83D\uDD04", label: "4 Rounds" },
+            { icon: "\uD83D\uDD04", label: `${numRounds} Rounds` },
             { icon: "\uD83C\uDFC6", label: "Final Verdict" },
             { icon: "\uD83C\uDF10", label: "Multi-Language" },
           ].map((f) => (

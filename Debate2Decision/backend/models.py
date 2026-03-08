@@ -34,6 +34,9 @@ class DebateSetup(BaseModel):
 
 class DebateRequest(BaseModel):
     topic: str
-    language: str = "english"  # "english", "hindi", "tamil"
+    language: str = "english"
     demo: bool = False
     transcript: str | None = None
+    num_agents: int = 3
+    num_rounds: int = 4
+    persona_constraints: str = ""

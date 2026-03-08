@@ -5,6 +5,8 @@ import { useDebateWebSocket } from "@/hooks/useDebateWebSocket";
 import TopicInput from "@/components/TopicInput";
 import DebateStage from "@/components/DebateStage";
 import VerdictCard from "@/components/VerdictCard";
+import UserVote from "@/components/UserVote";
+import VoteComparison from "@/components/VoteComparison";
 import { motion } from "framer-motion";
 
 export default function Home() {
@@ -26,8 +28,9 @@ export default function Home() {
     disconnect,
   } = useDebateWebSocket();
 
-  // Only show verdict after all audio has finished playing
   const [audioAllDone, setAudioAllDone] = useState(false);
+  const [userVote, setUserVote] = useState<string | null>(null);
+  const [voteSkipped, setVoteSkipped] = useState(false);
 
   const handleAllAudioDone = useCallback(() => {
     setAudioAllDone(true);
@@ -35,23 +38,25 @@ export default function Home() {
 
   const handleDisconnect = useCallback(() => {
     setAudioAllDone(false);
+    setUserVote(null);
+    setVoteSkipped(false);
     disconnect();
   }, [disconnect]);
 
   const handleStartDebate = useCallback(
-    (topic: string, language: string = "english", demo: boolean = false, transcript?: string) => {
+    (topic: string, language: string = "english", demo: boolean = false, transcript?: string, numAgents: number = 3, numRounds: number = 4, personaConstraints: string = "") => {
       setAudioAllDone(false);
-      startDebate(topic, language, demo, transcript);
+      setUserVote(null);
+      setVoteSkipped(false);
+      startDebate(topic, language, demo, transcript, numAgents, numRounds, personaConstraints);
     },
     [startDebate]
   );
 
-  // Verdict is ready to show only when server sent it AND all audio finished
-  const showVerdict = verdict && audioAllDone;
-
-  // Server says debate data is done (verdict received or finished status)
-  const debateDataDone =
-    status === "verdict" || status === "finished";
+  const debateDataDone = status === "verdict" || status === "finished";
+  const voteDone = userVote !== null || voteSkipped;
+  const showVoteScreen = debateDataDone && audioAllDone && !voteDone;
+  const showVerdict = verdict && audioAllDone && voteDone;
 
   if (status === "idle") {
     return <TopicInput onSubmit={handleStartDebate} isLoading={false} />;
@@ -184,14 +189,28 @@ export default function Home() {
         </div>
       )}
 
-      {/* Verdict - only shown after all audio has finished */}
+      {/* User Vote - shown after audio finishes, before verdict */}
+      {showVoteScreen && setup && (
+        <UserVote
+          agents={setup.agents}
+          onVote={(name) => setUserVote(name)}
+          onSkip={() => setVoteSkipped(true)}
+        />
+      )}
+
+      {/* Verdict + Vote Comparison */}
       {showVerdict && setup && (
-        <VerdictCard verdict={verdict} topic={setup.topic} />
+        <>
+          {userVote && verdict && (
+            <VoteComparison userVote={userVote} aiWinner={verdict.winner} />
+          )}
+          <VerdictCard verdict={verdict} topic={setup.topic} />
+        </>
       )}
 
       {/* Status footer */}
       <div className="text-center mt-2 pb-1">
-        {!showVerdict && (status === "debating" || debateDataDone) && (
+        {!showVerdict && !showVoteScreen && (status === "debating" || debateDataDone) && (
           <span className="text-xs text-indigo-300/70 flex items-center justify-center gap-2">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
             {debateDataDone && !audioAllDone

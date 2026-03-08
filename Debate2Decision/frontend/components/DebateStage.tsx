@@ -5,6 +5,7 @@ import AnimatedAvatar from "./AnimatedAvatar";
 import TypingText from "./TypingText";
 import SentimentChart from "./SentimentChart";
 import InterjectionInput from "./InterjectionInput";
+import FactCheckOverlay from "./FactCheckOverlay";
 import { useSpeechSynthesis } from "./SpeechSynthesis";
 import { DebateMessage, DebateSetup, AnalysisResult } from "@/hooks/useDebateWebSocket";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -582,6 +583,9 @@ export default function DebateStage({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Fact-Check Overlay */}
+      {analyses.length > 0 && <FactCheckOverlay analyses={analyses} />}
 
       
 

@@ -27,6 +27,78 @@ VOICE_MAP = {
         ("female", "british"): "ta-IN-PallaviNeural",
         ("male", "british"): "ta-IN-ValluvarNeural",
     },
+    "telugu": {
+        ("female", "indian"): "te-IN-ShrutiNeural",
+        ("male", "indian"): "te-IN-MohanNeural",
+    },
+    "kannada": {
+        ("female", "indian"): "kn-IN-SapnaNeural",
+        ("male", "indian"): "kn-IN-GaganNeural",
+    },
+    "malayalam": {
+        ("female", "indian"): "ml-IN-SobhanaNeural",
+        ("male", "indian"): "ml-IN-MidhunNeural",
+    },
+    "bengali": {
+        ("female", "indian"): "bn-IN-TanishaaNeural",
+        ("male", "indian"): "bn-IN-BashkarNeural",
+    },
+    "marathi": {
+        ("female", "indian"): "mr-IN-AarohiNeural",
+        ("male", "indian"): "mr-IN-ManoharNeural",
+    },
+    "gujarati": {
+        ("female", "indian"): "gu-IN-DhwaniNeural",
+        ("male", "indian"): "gu-IN-NiranjanNeural",
+    },
+    "spanish": {
+        ("female", "american"): "es-MX-DaliaNeural",
+        ("male", "american"): "es-MX-JorgeNeural",
+        ("female", "indian"): "es-ES-ElviraNeural",
+        ("male", "indian"): "es-ES-AlvaroNeural",
+    },
+    "french": {
+        ("female", "american"): "fr-FR-DeniseNeural",
+        ("male", "american"): "fr-FR-HenriNeural",
+        ("female", "indian"): "fr-FR-DeniseNeural",
+        ("male", "indian"): "fr-FR-HenriNeural",
+    },
+    "german": {
+        ("female", "american"): "de-DE-KatjaNeural",
+        ("male", "american"): "de-DE-ConradNeural",
+        ("female", "indian"): "de-DE-KatjaNeural",
+        ("male", "indian"): "de-DE-ConradNeural",
+    },
+    "japanese": {
+        ("female", "american"): "ja-JP-NanamiNeural",
+        ("male", "american"): "ja-JP-KeitaNeural",
+        ("female", "indian"): "ja-JP-NanamiNeural",
+        ("male", "indian"): "ja-JP-KeitaNeural",
+    },
+    "chinese": {
+        ("female", "american"): "zh-CN-XiaoxiaoNeural",
+        ("male", "american"): "zh-CN-YunxiNeural",
+        ("female", "indian"): "zh-CN-XiaoxiaoNeural",
+        ("male", "indian"): "zh-CN-YunxiNeural",
+    },
+    "arabic": {
+        ("female", "american"): "ar-SA-ZariyahNeural",
+        ("male", "american"): "ar-SA-HamedNeural",
+        ("female", "indian"): "ar-SA-ZariyahNeural",
+        ("male", "indian"): "ar-SA-HamedNeural",
+    },
+    "portuguese": {
+        ("female", "american"): "pt-BR-FranciscaNeural",
+        ("male", "american"): "pt-BR-AntonioNeural",
+        ("female", "indian"): "pt-BR-FranciscaNeural",
+        ("male", "indian"): "pt-BR-AntonioNeural",
+    },
+    "korean": {
+        ("female", "american"): "ko-KR-SunHiNeural",
+        ("male", "american"): "ko-KR-InJoonNeural",
+        ("female", "indian"): "ko-KR-SunHiNeural",
+        ("male", "indian"): "ko-KR-InJoonNeural",
+    },
 }
 
 VOICE_STYLES = {

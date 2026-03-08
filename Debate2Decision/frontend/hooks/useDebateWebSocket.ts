@@ -33,6 +33,13 @@ export interface DebateSetup {
   total_rounds: number;
 }
 
+export interface FactCheck {
+  claim: string;
+  verdict: "true" | "mostly_true" | "unverified" | "misleading" | "false";
+  confidence: number;
+  explanation: string;
+}
+
 export interface AnalysisResult {
   agent_name: string;
   round_number: number;
@@ -43,6 +50,7 @@ export interface AnalysisResult {
     factual_strength: number;
     overall: number;
   };
+  fact_check?: FactCheck[];
 }
 
 export interface Verdict {
@@ -88,7 +96,7 @@ export function useDebateWebSocket() {
   }, []);
 
   const startDebate = useCallback(
-    (topic: string, language: string = "english", demo: boolean = false, transcript?: string) => {
+    (topic: string, language: string = "english", demo: boolean = false, transcript?: string, numAgents: number = 3, numRounds: number = 4, personaConstraints: string = "") => {
       updateStatus("connecting");
       setMessages([]);
       setSetup(null);
@@ -107,7 +115,13 @@ export function useDebateWebSocket() {
 
       ws.onopen = () => {
         updateStatus("generating");
-        ws.send(JSON.stringify({ topic, language, demo, transcript: transcript || null }));
+        ws.send(JSON.stringify({
+          topic, language, demo,
+          transcript: transcript || null,
+          num_agents: numAgents,
+          num_rounds: numRounds,
+          persona_constraints: personaConstraints,
+        }));
       };
 
       ws.onmessage = (event) => {

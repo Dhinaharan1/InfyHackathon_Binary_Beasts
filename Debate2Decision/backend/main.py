@@ -56,13 +56,19 @@ async def debate_websocket(websocket: WebSocket):
                     "type": "status",
                     "data": {"message": "Analyzing chat transcript and extracting debate topic..."},
                 }))
-                setup = await generate_debate_from_transcript(request.transcript, request.language)
+                setup = await generate_debate_from_transcript(
+                    request.transcript, request.language,
+                    request.num_agents, request.num_rounds, request.persona_constraints,
+                )
             else:
                 await websocket.send_text(json.dumps({
                     "type": "status",
                     "data": {"message": "Analyzing topic and generating debate personas..."},
                 }))
-                setup = await generate_debate_setup(request.topic, request.language)
+                setup = await generate_debate_setup(
+                    request.topic, request.language,
+                    request.num_agents, request.num_rounds, request.persona_constraints,
+                )
 
             await websocket.send_text(json.dumps({
                 "type": "status",

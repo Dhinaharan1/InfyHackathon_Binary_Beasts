@@ -5,12 +5,30 @@ from orchestrator import call_groq, analyze_message
 from tts import generate_speech
 from models import AgentPersona, DebateSetup, DebateMessage
 
-ROUND_NAMES = [
+ALL_ROUND_NAMES = [
     "Opening Statements",
     "Cross-Examination",
     "Rebuttals",
+    "Deep Dive",
+    "Free Discussion",
+    "Devil's Advocate",
+    "Audience Q&A",
     "Closing Statements",
 ]
+
+ROUND_NAMES = ALL_ROUND_NAMES[:4]
+
+
+def get_round_names(num_rounds: int) -> list[str]:
+    num_rounds = max(2, min(8, num_rounds))
+    if num_rounds <= 4:
+        if num_rounds == 2:
+            return ["Opening Statements", "Closing Statements"]
+        elif num_rounds == 3:
+            return ["Opening Statements", "Cross-Examination", "Closing Statements"]
+        else:
+            return ALL_ROUND_NAMES[:4]
+    return [ALL_ROUND_NAMES[0]] + ALL_ROUND_NAMES[1:num_rounds - 1][:num_rounds - 2] + [ALL_ROUND_NAMES[-1]]
 
 AGENT_PROMPT = """You are {name}, a real person - a {role} in the {industry} industry.
 Your background: {accent} speaker, {gender}.
@@ -70,6 +88,10 @@ ROUND_INSTRUCTIONS = {
     "Opening Statements": "Share why this topic matters to you personally. Be genuine about your perspective. Use a real-world example or a personal experience to connect with the audience. Set your tone - warm, passionate, thoughtful.",
     "Cross-Examination": "Respectfully challenge someone's point that you disagree with. Acknowledge what they got right first, then explain where you think they went wrong. Use a concrete example or data point. Be firm but never rude.",
     "Rebuttals": "Someone challenged your view - respond with conviction but grace. Share a personal story or real-world example that proves your point. Show that you genuinely care about getting this right, not just winning.",
+    "Deep Dive": "Go deeper into the technical or practical aspects. Share specific data, case studies, or detailed analysis. This is your chance to show expertise and back up claims with substance.",
+    "Free Discussion": "Engage freely with any points raised so far. You can agree, disagree, build on someone's idea, or bring up something entirely new. Keep it conversational and natural.",
+    "Devil's Advocate": "Challenge the strongest argument from the opposing side. Even if you agree with parts of it, find the weakness. Play devil's advocate constructively.",
+    "Audience Q&A": "Address the audience directly. Anticipate what questions they might have and answer them preemptively. Make your case relatable to everyday people.",
     "Closing Statements": "Wrap up with your strongest, most heartfelt argument. Bring it back to why this matters for real people. End with something memorable - a thought-provoking question, a hopeful vision, or a call to action.",
 }
 
@@ -102,6 +124,7 @@ class DebateEngine:
         self.setup = setup
         self.transcript: list[dict] = []
         self.interjections: list[dict] = []
+        self.round_names = get_round_names(setup.total_rounds)
 
     def add_interjection(self, text: str, after_round: int):
         self.interjections.append({"text": text, "after_round": after_round})
@@ -115,7 +138,7 @@ class DebateEngine:
 
         context_parts = []
         if prev_round_msgs:
-            context_parts.append(f"Previous round ({ROUND_NAMES[round_num - 1]}):")
+            context_parts.append(f"Previous round ({self.round_names[round_num - 1]}):")
             for m in prev_round_msgs:
                 context_parts.append(f"  {m['agent_name']} ({m['agent_role']}): {m['content']}")
 
@@ -133,11 +156,14 @@ class DebateEngine:
         return "\n".join(context_parts) if context_parts else "No arguments made yet."
 
     async def run_agent_turn(self, agent: AgentPersona, round_num: int) -> tuple[str, str, dict | None]:
-        round_name = ROUND_NAMES[round_num]
+        round_name = self.round_names[round_num]
         context = self._build_context(round_num)
 
         language = self.setup.language
-        lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["english"])
+        lang_instruction = LANGUAGE_INSTRUCTIONS.get(
+            language,
+            f"LANGUAGE: Respond ONLY in {language}. Use natural conversational {language}."
+        )
 
         prompt = AGENT_PROMPT.format(
             name=agent.name,
@@ -156,7 +182,7 @@ class DebateEngine:
             language_instruction=lang_instruction,
         )
 
-        lang_label = {"english": "English", "hindi": "Hindi", "tamil": "Tamil"}.get(language, "English")
+        lang_label = language.capitalize()
         system = (
             f"You are {agent.name}, a real {agent.gender} person. "
             f"You're a {agent.role} who {agent.emotional_style}. "
@@ -205,7 +231,7 @@ class DebateEngine:
             agent_stances=agent_stances,
         )
 
-        lang_label = {"english": "English", "hindi": "Hindi", "tamil": "Tamil"}.get(self.setup.language, "English")
+        lang_label = self.setup.language.capitalize()
         text = await call_groq(
             prompt,
             system=f"You are a warm, thoughtful debate judge. Respond with valid JSON only. The 'conclusion' and 'reasoning' fields must be in {lang_label}. The 'winner', 'winner_role', 'name', 'role', 'strength' fields must also be in {lang_label}. Only the JSON keys must remain in English."
@@ -223,12 +249,12 @@ class DebateEngine:
             "data": self.setup.model_dump(),
         }
 
-        for round_num in range(len(ROUND_NAMES)):
+        for round_num in range(len(self.round_names)):
             yield {
                 "type": "round_start",
                 "data": {
                     "round_number": round_num,
-                    "round_name": ROUND_NAMES[round_num],
+                    "round_name": self.round_names[round_num],
                 },
             }
 
@@ -245,7 +271,7 @@ class DebateEngine:
                         **DebateMessage(
                             agent=agent,
                             content=content,
-                            round_name=ROUND_NAMES[round_num],
+                            round_name=self.round_names[round_num],
                             round_number=round_num,
                         ).model_dump(),
                         "audio": audio_base64,
@@ -258,7 +284,7 @@ class DebateEngine:
                         "data": {
                             "agent_name": agent.name,
                             "round_number": round_num,
-                            "round_name": ROUND_NAMES[round_num],
+                            "round_name": self.round_names[round_num],
                             **analysis,
                         },
                     }
@@ -269,16 +295,16 @@ class DebateEngine:
                 "type": "round_end",
                 "data": {
                     "round_number": round_num,
-                    "round_name": ROUND_NAMES[round_num],
+                    "round_name": self.round_names[round_num],
                 },
             }
 
-            if round_num < len(ROUND_NAMES) - 1:
+            if round_num < len(self.round_names) - 1:
                 yield {
                     "type": "round_pause",
                     "data": {
                         "after_round": round_num,
-                        "next_round": ROUND_NAMES[round_num + 1],
+                        "next_round": self.round_names[round_num + 1],
                         "timeout_seconds": 30,
                     },
                 }
