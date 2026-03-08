@@ -5,7 +5,7 @@ import AnimatedAvatar from "./AnimatedAvatar";
 import TypingText from "./TypingText";
 import SentimentChart from "./SentimentChart";
 import InterjectionInput from "./InterjectionInput";
-import FactCheckOverlay from "./FactCheckOverlay";
+
 import { useSpeechSynthesis } from "./SpeechSynthesis";
 import { DebateMessage, DebateSetup, AnalysisResult } from "@/hooks/useDebateWebSocket";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -555,20 +555,33 @@ export default function DebateStage({
           </motion.div>
         )}
 
-        {/* Interjection Input */}
-        <AnimatePresence>
-          {pauseData && onSendInterjection && onSkipInterjection && (
-            <div className="mt-4">
+      </div>
+
+      {/* Interjection Input - floating modal overlay */}
+      <AnimatePresence>
+        {pauseData && onSendInterjection && onSkipInterjection && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            >
               <InterjectionInput
                 nextRound={pauseData.nextRound}
                 timeoutSeconds={pauseData.timeoutSeconds}
                 onSubmit={onSendInterjection}
                 onSkip={onSkipInterjection}
               />
-            </div>
-          )}
-        </AnimatePresence>
-      </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Floating Sentiment Chart */}
       <AnimatePresence>
@@ -584,8 +597,7 @@ export default function DebateStage({
         )}
       </AnimatePresence>
 
-      {/* Fact-Check Overlay */}
-      {analyses.length > 0 && <FactCheckOverlay analyses={analyses} />}
+
 
       
 

@@ -41,7 +41,7 @@ export default function FactCheckOverlay({ analyses }: Props) {
     <motion.div
       initial={{ opacity: 0, x: 10 }}
       animate={{ opacity: 1, x: 0 }}
-      className="fixed top-4 right-4 z-40"
+      className="relative"
     >
       <button
         onClick={() => setExpanded(!expanded)}
@@ -69,7 +69,7 @@ export default function FactCheckOverlay({ analyses }: Props) {
             initial={{ opacity: 0, y: -5, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -5, scale: 0.95 }}
-            className="mt-2 w-[320px] max-h-[400px] overflow-y-auto glass-card-strong rounded-xl p-3 border border-white/10"
+            className="absolute right-0 mt-2 w-[320px] max-h-[400px] overflow-y-auto glass-card-strong rounded-xl p-3 border border-white/10 z-50"
           >
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-semibold text-white uppercase tracking-wider">

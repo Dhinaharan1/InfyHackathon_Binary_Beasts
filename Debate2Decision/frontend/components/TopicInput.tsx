@@ -147,6 +147,7 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
   const [transcript, setTranscript] = useState("");
   const [language, setLanguage] = useState("english");
   const [customLanguage, setCustomLanguage] = useState("");
+  const [showMoreLangs, setShowMoreLangs] = useState(false);
   const [numAgents, setNumAgents] = useState(3);
   const [numRounds, setNumRounds] = useState(4);
   const [personaConstraints, setPersonaConstraints] = useState("");
@@ -315,8 +316,8 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
             <label className="text-sm font-medium text-gray-300 block mb-2">
               Debate Language
             </label>
-            <div className="grid grid-cols-5 gap-1.5 mb-2">
-              {LANGUAGES.map((lang) => (
+            <div className="flex gap-2 mb-2">
+              {LANGUAGES.slice(0, 3).map((lang) => (
                 <button
                   key={lang.code}
                   type="button"
@@ -325,34 +326,76 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
                     setCustomLanguage("");
                     setTopic("");
                   }}
-                  className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     language === lang.code && !customLanguage
                       ? "bg-indigo-600/80 text-white border border-indigo-500/50 shadow-lg shadow-indigo-500/20"
                       : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08] hover:border-indigo-500/30"
                   }`}
-                  title={lang.native}
                 >
-                  <span>{lang.flag}</span>
-                  <span className="truncate">{lang.label}</span>
+                  <span className="text-lg">{lang.flag}</span>
+                  <span>{lang.label}</span>
+                  <span className="text-xs opacity-60">({lang.native})</span>
                 </button>
               ))}
-              <div className="col-span-5 flex gap-2 mt-1">
-                <input
-                  type="text"
-                  value={customLanguage}
-                  onChange={(e) => {
-                    setCustomLanguage(e.target.value);
-                    if (e.target.value.trim()) {
-                      setLanguage(e.target.value.trim().toLowerCase());
-                    } else {
-                      setLanguage("english");
-                    }
-                  }}
-                  placeholder="Or type any language..."
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                />
-              </div>
             </div>
+
+            {/* View More Languages */}
+            <button
+              type="button"
+              onClick={() => setShowMoreLangs(!showMoreLangs)}
+              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors mb-2"
+            >
+              {showMoreLangs ? "Show Less" : `View More Languages (${LANGUAGES.length - 3}+)`}
+            </button>
+
+            <AnimatePresence>
+              {showMoreLangs && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="grid grid-cols-4 gap-1.5 mb-2">
+                    {LANGUAGES.slice(3).map((lang) => (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => {
+                          setLanguage(lang.code);
+                          setCustomLanguage("");
+                          setTopic("");
+                        }}
+                        className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-medium transition-all ${
+                          language === lang.code && !customLanguage
+                            ? "bg-indigo-600/80 text-white border border-indigo-500/50 shadow-lg shadow-indigo-500/20"
+                            : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08] hover:border-indigo-500/30"
+                        }`}
+                        title={lang.native}
+                      >
+                        <span>{lang.flag}</span>
+                        <span className="truncate">{lang.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={customLanguage}
+                    onChange={(e) => {
+                      setCustomLanguage(e.target.value);
+                      if (e.target.value.trim()) {
+                        setLanguage(e.target.value.trim().toLowerCase());
+                      } else {
+                        setLanguage("english");
+                      }
+                    }}
+                    placeholder="Or type any language..."
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Advanced Settings Toggle */}

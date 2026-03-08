@@ -42,14 +42,14 @@ export default function InterjectionInput({ nextRound, timeoutSeconds, onSubmit,
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -10, scale: 0.95 }}
-      className="glass-card-strong rounded-2xl p-4 max-w-xl mx-auto"
+      className="rounded-2xl p-6 max-w-xl mx-auto bg-[#0f0f1a]/95 border border-indigo-500/30 shadow-2xl shadow-black/50"
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{"\uD83D\uDE4B"}</span>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{"\uD83D\uDE4B"}</span>
           <div>
-            <p className="text-xs font-semibold text-indigo-300">Your Turn to Speak</p>
-            <p className="text-[10px] text-gray-500">Ask a question or challenge the debaters before {nextRound}</p>
+            <p className="text-sm font-bold text-indigo-300">Your Turn to Speak</p>
+            <p className="text-xs text-gray-400 mt-0.5">Ask a question or challenge the debaters before {nextRound}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -72,26 +72,26 @@ export default function InterjectionInput({ nextRound, timeoutSeconds, onSubmit,
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
+      <form onSubmit={handleSubmit} className="flex gap-2 mt-1">
         <input
           ref={inputRef}
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="e.g. What about the impact on small businesses?"
-          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+          className="flex-1 bg-white/[0.08] border border-white/15 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
         <button
           type="submit"
           disabled={!text.trim()}
-          className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all"
+          className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-semibold px-5 py-3 rounded-xl transition-all shadow-lg shadow-indigo-500/20"
         >
           Send
         </button>
         <button
           type="button"
           onClick={onSkip}
-          className="text-gray-400 hover:text-gray-200 text-sm px-3 py-2.5 rounded-xl hover:bg-white/5 transition-all"
+          className="text-gray-400 hover:text-gray-200 text-sm px-4 py-3 rounded-xl hover:bg-white/5 transition-all border border-white/10"
         >
           Skip
         </button>

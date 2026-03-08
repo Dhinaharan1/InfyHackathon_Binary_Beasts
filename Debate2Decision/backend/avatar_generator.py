@@ -32,6 +32,11 @@ AGE_KEYWORDS = {
 def _build_prompt(agent) -> str:
     ethnicity = ETHNICITY_MAP.get(agent.accent, "professional")
     gender = "woman" if agent.gender == "female" else "man"
+    gender_features = (
+        "feminine features, long hair or styled hair, wearing professional women's business attire"
+        if agent.gender == "female"
+        else "masculine features, short hair, wearing professional men's business suit and tie"
+    )
 
     age = "38 years old"
     role_lower = agent.role.lower()
@@ -41,8 +46,9 @@ def _build_prompt(agent) -> str:
             break
 
     return (
-        f"3D Pixar Disney style character portrait bust shot of a professional {ethnicity} {gender}, "
-        f"age {age}, {agent.role}, calm confident expression, closed mouth, subtle gentle smile, modern business attire, "
+        f"3D Pixar Disney style character portrait bust shot of a {ethnicity} {gender}, "
+        f"clearly {agent.gender}, {gender_features}, "
+        f"age {age}, {agent.role}, calm confident expression, closed mouth, subtle gentle smile, "
         f"soft diffused studio lighting, clean soft gradient background, "
         f"highly detailed 3D render, smooth skin, warm friendly eyes, "
         f"professional headshot composition, vibrant colors"

@@ -7,6 +7,7 @@ import DebateStage from "@/components/DebateStage";
 import VerdictCard from "@/components/VerdictCard";
 import UserVote from "@/components/UserVote";
 import VoteComparison from "@/components/VoteComparison";
+import FactCheckOverlay from "@/components/FactCheckOverlay";
 import { motion } from "framer-motion";
 
 export default function Home() {
@@ -151,7 +152,7 @@ export default function Home() {
   return (
     <div className="h-screen flex flex-col p-3 md:p-4">
       {/* Top Bar */}
-      <div className="flex justify-between items-center mb-3">
+      <div className="flex justify-between items-center mb-3 relative z-50">
         <h1 className="text-lg font-bold text-white flex items-center gap-2">
           <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm">
             {"\u2696\uFE0F"}
@@ -161,12 +162,15 @@ export default function Home() {
             AI
           </span>
         </h1>
-        <button
-          onClick={handleDisconnect}
-          className="text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-4 py-1.5 rounded-lg transition-all hover:border-indigo-500/30"
-        >
-          New Debate
-        </button>
+        <div className="flex items-center gap-2">
+          {analyses.length > 0 && <FactCheckOverlay analyses={analyses} />}
+          <button
+            onClick={handleDisconnect}
+            className="text-sm bg-red-600/80 hover:bg-red-500 border border-red-500/50 text-white font-medium px-4 py-1.5 rounded-lg transition-all shadow-lg shadow-red-500/20"
+          >
+            New Debate
+          </button>
+        </div>
       </div>
 
       {/* Debate Stage */}

@@ -45,6 +45,7 @@ async def debate_websocket(websocket: WebSocket):
     try:
         data = await websocket.receive_text()
         request = DebateRequest(**json.loads(data))
+        print(f"[Debate Config] agents={request.num_agents}, rounds={request.num_rounds}, lang={request.language}, constraints='{request.persona_constraints}'")
 
         if request.demo and request.transcript:
             await _run_demo_debate(websocket, DEMO_TRANSCRIPT_SETUP, DEMO_TRANSCRIPT_MESSAGES, DEMO_TRANSCRIPT_VERDICT)
