@@ -22,7 +22,7 @@ export default function Home() {
     disconnect,
   } = useDebateWebSocket();
 
-  // Only show verdict after all audio has finished playing
+  // Onlyy show verdict after all audio has finished playing
   const [audioAllDone, setAudioAllDone] = useState(false);
 
   const handleAllAudioDone = useCallback(() => {
