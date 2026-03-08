@@ -120,6 +120,47 @@ async def check_topic_sensitivity(topic: str) -> dict:
         return {"level": "low", "categories": [], "warning": "", "suggestion": ""}
 
 
+ANALYSIS_PROMPT = """Analyze this debate argument briefly.
+
+Speaker: {agent_name} ({agent_role}), stance: {agent_stance}
+Topic: "{topic}"
+Round: {round_name}
+Argument: "{content}"
+
+Return ONLY valid JSON (no markdown, no code fences):
+{{
+  "sentiment": {{
+    "persuasiveness": 0-100,
+    "emotional_impact": 0-100,
+    "factual_strength": 0-100,
+    "overall": 0-100
+  }}
+}}
+
+Score generously but differentiate clearly between strong and weak arguments. Be fair across all stances.
+"""
+
+
+async def analyze_message(agent_name: str, agent_role: str, agent_stance: str, topic: str, round_name: str, content: str) -> dict | None:
+    try:
+        prompt = ANALYSIS_PROMPT.format(
+            agent_name=agent_name,
+            agent_role=agent_role,
+            agent_stance=agent_stance,
+            topic=topic,
+            round_name=round_name,
+            content=content,
+        )
+        text = await call_groq(prompt, system="You are a debate analyst. Return valid JSON only.", max_retries=2)
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1]
+            text = text.rsplit("```", 1)[0].strip()
+        return json.loads(text)
+    except Exception as e:
+        print(f"Analysis failed for {agent_name}: {e}")
+        return None
+
+
 LANGUAGE_CONFIG = {
     "english": {
         "instruction": "All debate responses must be in English.",

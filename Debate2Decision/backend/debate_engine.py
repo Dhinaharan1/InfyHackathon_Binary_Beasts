@@ -1,7 +1,7 @@
 import json
 import asyncio
 from typing import AsyncGenerator
-from orchestrator import call_groq
+from orchestrator import call_groq, analyze_message
 from tts import generate_speech
 from models import AgentPersona, DebateSetup, DebateMessage
 
@@ -101,6 +101,10 @@ class DebateEngine:
     def __init__(self, setup: DebateSetup):
         self.setup = setup
         self.transcript: list[dict] = []
+        self.interjections: list[dict] = []
+
+    def add_interjection(self, text: str, after_round: int):
+        self.interjections.append({"text": text, "after_round": after_round})
 
     def _build_context(self, round_num: int) -> str:
         if not self.transcript:
@@ -115,6 +119,12 @@ class DebateEngine:
             for m in prev_round_msgs:
                 context_parts.append(f"  {m['agent_name']} ({m['agent_role']}): {m['content']}")
 
+        relevant_interjections = [ij for ij in self.interjections if ij["after_round"] == round_num - 1]
+        if relevant_interjections:
+            context_parts.append(f"\nAUDIENCE INTERJECTION (you MUST address this in your response):")
+            for ij in relevant_interjections:
+                context_parts.append(f'  Audience member asked: "{ij["text"]}"')
+
         if current_round_msgs:
             context_parts.append(f"\nAlready spoken this round:")
             for m in current_round_msgs:
@@ -122,7 +132,7 @@ class DebateEngine:
 
         return "\n".join(context_parts) if context_parts else "No arguments made yet."
 
-    async def run_agent_turn(self, agent: AgentPersona, round_num: int) -> tuple[str, str]:
+    async def run_agent_turn(self, agent: AgentPersona, round_num: int) -> tuple[str, str, dict | None]:
         round_name = ROUND_NAMES[round_num]
         context = self._build_context(round_num)
 
@@ -169,11 +179,16 @@ class DebateEngine:
         agent_index = next(
             (i for i, a in enumerate(self.setup.agents) if a.name == agent.name), 0
         )
-        audio_base64 = await generate_speech(
+
+        tts_task = generate_speech(
             content, agent.gender, agent.accent, agent_index, self.setup.language
         )
+        analysis_task = analyze_message(
+            agent.name, agent.role, agent.stance, self.setup.topic, round_name, content
+        )
+        audio_base64, analysis = await asyncio.gather(tts_task, analysis_task)
 
-        return content, audio_base64
+        return content, audio_base64, analysis
 
     async def generate_verdict(self) -> dict:
         transcript_text = ""
@@ -223,7 +238,7 @@ class DebateEngine:
                     "data": {"agent_name": agent.name},
                 }
 
-                content, audio_base64 = await self.run_agent_turn(agent, round_num)
+                content, audio_base64, analysis = await self.run_agent_turn(agent, round_num)
                 yield {
                     "type": "agent_message",
                     "data": {
@@ -237,6 +252,17 @@ class DebateEngine:
                     },
                 }
 
+                if analysis:
+                    yield {
+                        "type": "analysis",
+                        "data": {
+                            "agent_name": agent.name,
+                            "round_number": round_num,
+                            "round_name": ROUND_NAMES[round_num],
+                            **analysis,
+                        },
+                    }
+
                 await asyncio.sleep(2.5)
 
             yield {
@@ -246,6 +272,16 @@ class DebateEngine:
                     "round_name": ROUND_NAMES[round_num],
                 },
             }
+
+            if round_num < len(ROUND_NAMES) - 1:
+                yield {
+                    "type": "round_pause",
+                    "data": {
+                        "after_round": round_num,
+                        "next_round": ROUND_NAMES[round_num + 1],
+                        "timeout_seconds": 30,
+                    },
+                }
 
         yield {
             "type": "status",

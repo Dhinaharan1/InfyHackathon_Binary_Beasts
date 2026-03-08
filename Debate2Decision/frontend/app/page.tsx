@@ -16,9 +16,13 @@ export default function Home() {
     activeAgent,
     thinkingAgent,
     verdict,
+    analyses,
+    pauseData,
     error,
     statusMessage,
     startDebate,
+    sendInterjection,
+    skipInterjection,
     disconnect,
   } = useDebateWebSocket();
 
@@ -169,6 +173,10 @@ export default function Home() {
             currentRound={currentRound}
             activeAgent={activeAgent}
             thinkingAgent={thinkingAgent}
+            analyses={analyses}
+            pauseData={pauseData}
+            onSendInterjection={sendInterjection}
+            onSkipInterjection={skipInterjection}
             onAllAudioDone={handleAllAudioDone}
             onStop={handleDisconnect}
             debateFinishedFromServer={debateDataDone}

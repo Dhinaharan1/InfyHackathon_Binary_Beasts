@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from models import DebateRequest
 from fastapi import Body
-from orchestrator import generate_debate_setup, generate_debate_from_transcript, check_topic_sensitivity
+from orchestrator import generate_debate_setup, generate_debate_from_transcript, check_topic_sensitivity, analyze_message
 from debate_engine import DebateEngine, ROUND_NAMES
 from demo_data import (
     DEMO_SETUP, DEMO_MESSAGES, DEMO_VERDICT,
@@ -78,6 +78,26 @@ async def debate_websocket(websocket: WebSocket):
 
             async for event in engine.run_debate():
                 await websocket.send_text(json.dumps(event))
+
+                if event["type"] == "round_pause":
+                    try:
+                        user_msg = await asyncio.wait_for(
+                            websocket.receive_text(), timeout=30
+                        )
+                        user_data = json.loads(user_msg)
+                        if user_data.get("type") == "interjection" and user_data.get("text", "").strip():
+                            engine.add_interjection(
+                                user_data["text"].strip(),
+                                event["data"]["after_round"],
+                            )
+                            await websocket.send_text(json.dumps({
+                                "type": "interjection_received",
+                                "data": {"text": user_data["text"].strip()},
+                            }))
+                    except asyncio.TimeoutError:
+                        pass
+                    except Exception:
+                        pass
 
     except WebSocketDisconnect:
         pass
@@ -159,6 +179,22 @@ async def _run_demo_debate(websocket: WebSocket, demo_setup=None, demo_messages=
                 "type": "agent_message",
                 "data": msg_data,
             }))
+
+            analysis = await analyze_message(
+                msg.agent.name, msg.agent.role, msg.agent.stance,
+                demo_setup.topic, ROUND_NAMES[round_num], msg.content,
+            )
+            if analysis:
+                await websocket.send_text(json.dumps({
+                    "type": "analysis",
+                    "data": {
+                        "agent_name": msg.agent.name,
+                        "round_number": round_num,
+                        "round_name": ROUND_NAMES[round_num],
+                        **analysis,
+                    },
+                }))
+
             await asyncio.sleep(0.5)
 
         await websocket.send_text(json.dumps({

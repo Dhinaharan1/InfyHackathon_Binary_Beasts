@@ -33,6 +33,18 @@ export interface DebateSetup {
   total_rounds: number;
 }
 
+export interface AnalysisResult {
+  agent_name: string;
+  round_number: number;
+  round_name: string;
+  sentiment: {
+    persuasiveness: number;
+    emotional_impact: number;
+    factual_strength: number;
+    overall: number;
+  };
+}
+
 export interface Verdict {
   winner: string;
   winner_role: string;
@@ -60,6 +72,11 @@ export function useDebateWebSocket() {
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [thinkingAgent, setThinkingAgent] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [analyses, setAnalyses] = useState<AnalysisResult[]>([]);
+  const [pauseData, setPauseData] = useState<{
+    nextRound: string;
+    timeoutSeconds: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const wsRef = useRef<WebSocket | null>(null);
@@ -76,6 +93,8 @@ export function useDebateWebSocket() {
       setMessages([]);
       setSetup(null);
       setVerdict(null);
+      setAnalyses([]);
+      setPauseData(null);
       setError(null);
       setCurrentRound("");
       setCurrentRoundNum(-1);
@@ -110,6 +129,7 @@ export function useDebateWebSocket() {
           case "round_start":
             setCurrentRound(msg.data.round_name);
             setCurrentRoundNum(msg.data.round_number);
+            setPauseData(null);
             break;
 
           case "agent_thinking":
@@ -120,6 +140,20 @@ export function useDebateWebSocket() {
             setThinkingAgent(null);
             setActiveAgent(msg.data.agent.name);
             setMessages((prev) => [...prev, msg.data]);
+            break;
+
+          case "analysis":
+            setAnalyses((prev) => [...prev, msg.data]);
+            break;
+
+          case "round_pause":
+            setPauseData({
+              nextRound: msg.data.next_round,
+              timeoutSeconds: msg.data.timeout_seconds,
+            });
+            break;
+
+          case "interjection_received":
             break;
 
           case "round_end":
@@ -168,6 +202,20 @@ export function useDebateWebSocket() {
     [updateStatus]
   );
 
+  const sendInterjection = useCallback((text: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "interjection", text }));
+      setPauseData(null);
+    }
+  }, []);
+
+  const skipInterjection = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "skip" }));
+      setPauseData(null);
+    }
+  }, []);
+
   const disconnect = useCallback(() => {
     wsRef.current?.close();
     updateStatus("idle");
@@ -182,9 +230,13 @@ export function useDebateWebSocket() {
     activeAgent,
     thinkingAgent,
     verdict,
+    analyses,
+    pauseData,
     error,
     statusMessage,
     startDebate,
+    sendInterjection,
+    skipInterjection,
     disconnect,
   };
 }
