@@ -79,6 +79,47 @@ async def call_groq(prompt: str, system: str = "You are a helpful assistant.", m
         raise Exception("Groq API rate limit exceeded after all retries. Please wait a moment and try again.")
 
 
+SENSITIVITY_PROMPT = """Analyze this debate topic for sensitivity. Rate how sensitive the topic is for a public debate setting.
+
+Topic: "{topic}"
+
+Classify the sensitivity level as:
+- "low" - Normal professional/technology/general topics with no sensitive elements (e.g. remote work, AI in education, 4-day work week, microservices vs monolith)
+- "medium" - Topics that touch on mildly sensitive areas but are commonly debated in public (e.g. cryptocurrency regulation, social media impact on youth, gun control, immigration policy)
+- "high" - Topics involving deeply sensitive areas like religion, race, gender identity, sexuality, graphic violence, drugs, or extremely polarizing cultural/political issues
+
+Return ONLY valid JSON (no markdown, no code fences):
+{{
+  "level": "low" or "medium" or "high",
+  "categories": ["list of detected topic categories, e.g. technology, political, religious, racial, gender, violence, economics, education, health, social"],
+  "warning": "A brief, neutral 1-2 sentence description of the topic's sensitivity context. For low sensitivity, describe why it is safe. For medium/high, explain what makes it sensitive.",
+  "suggestion": "An optional rephrased version of the topic that is less sensitive. Empty string if not needed or if already low."
+}}
+"""
+
+
+async def check_topic_sensitivity(topic: str) -> dict:
+    try:
+        prompt = SENSITIVITY_PROMPT.format(topic=topic)
+        text = await call_groq(
+            prompt,
+            system="You are a content moderation expert. Be balanced and accurate in your ratings. Respond with valid JSON only.",
+            max_retries=2,
+        )
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1]
+            text = text.rsplit("```", 1)[0].strip()
+        result = json.loads(text)
+        result.setdefault("level", "low")
+        result.setdefault("categories", [])
+        result.setdefault("warning", "")
+        result.setdefault("suggestion", "")
+        return result
+    except Exception as e:
+        print(f"Sensitivity check failed: {e}")
+        return {"level": "low", "categories": [], "warning": "", "suggestion": ""}
+
+
 LANGUAGE_CONFIG = {
     "english": {
         "instruction": "All debate responses must be in English.",

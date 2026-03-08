@@ -17,7 +17,7 @@ export function useSpeechSynthesis() {
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
 
   const ensureAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {

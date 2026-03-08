@@ -3,7 +3,8 @@ import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from models import DebateRequest
-from orchestrator import generate_debate_setup, generate_debate_from_transcript
+from fastapi import Body
+from orchestrator import generate_debate_setup, generate_debate_from_transcript, check_topic_sensitivity
 from debate_engine import DebateEngine, ROUND_NAMES
 from demo_data import (
     DEMO_SETUP, DEMO_MESSAGES, DEMO_VERDICT,
@@ -27,6 +28,14 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/api/check-topic")
+async def check_topic(body: dict = Body(...)):
+    topic = body.get("topic", "")
+    if not topic.strip():
+        return {"level": "low", "categories": [], "warning": "", "suggestion": ""}
+    return await check_topic_sensitivity(topic.strip())
 
 
 @app.websocket("/ws/debate")
