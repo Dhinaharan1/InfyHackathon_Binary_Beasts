@@ -3,8 +3,11 @@
 import { motion, AnimatePresence } from "framer-motion";
 import AnimatedAvatar from "./AnimatedAvatar";
 import TypingText from "./TypingText";
+import SentimentChart from "./SentimentChart";
+import InterjectionInput from "./InterjectionInput";
+
 import { useSpeechSynthesis } from "./SpeechSynthesis";
-import { DebateMessage, DebateSetup } from "@/hooks/useDebateWebSocket";
+import { DebateMessage, DebateSetup, AnalysisResult } from "@/hooks/useDebateWebSocket";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 interface Props {
@@ -13,6 +16,10 @@ interface Props {
   currentRound: string;
   activeAgent: string | null;
   thinkingAgent?: string | null;
+  analyses?: AnalysisResult[];
+  pauseData?: { nextRound: string; timeoutSeconds: number } | null;
+  onSendInterjection?: (text: string) => void;
+  onSkipInterjection?: () => void;
   onAllAudioDone?: () => void;
   onStop?: () => void;
   debateFinishedFromServer?: boolean;
@@ -31,6 +38,10 @@ export default function DebateStage({
   currentRound,
   activeAgent,
   thinkingAgent,
+  analyses = [],
+  pauseData,
+  onSendInterjection,
+  onSkipInterjection,
   onAllAudioDone,
   onStop,
   debateFinishedFromServer,
@@ -245,7 +256,7 @@ export default function DebateStage({
       </div>
 
       {/* Main Stage */}
-      <div className="glass-card rounded-xl p-4 flex-shrink-0">
+      <div className="glass-card rounded-xl p-4 flex-1 min-h-0 overflow-hidden flex flex-col justify-start">
         {hasVideo && liveMessage && speakingAgent ? (
           /* ── Video Mode: compact video + all agents panel ── */
           <div className="flex flex-col gap-4">
@@ -485,10 +496,18 @@ export default function DebateStage({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.3 }}
-                  className="mt-4 glass-card rounded-2xl p-4 max-w-2xl mx-auto"
+                  className="mt-3 glass-card rounded-2xl p-3 max-w-2xl mx-auto max-h-[80px] overflow-y-auto"
                   style={{
                     borderColor: liveMessage.agent.avatar_color + "40",
                     boxShadow: `0 0 20px ${liveMessage.agent.avatar_color}10`,
+                  }}
+                  ref={(el) => {
+                    if (el) {
+                      const observer = new MutationObserver(() => {
+                        el.scrollTop = el.scrollHeight;
+                      });
+                      observer.observe(el, { childList: true, subtree: true, characterData: true });
+                    }
                   }}
                 >
                   <TypingText
@@ -535,42 +554,52 @@ export default function DebateStage({
             </div>
           </motion.div>
         )}
+
       </div>
 
-      {/* Message History */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto space-y-1 pr-1 min-h-0"
-      >
-        {Object.entries(historyByRound).map(([roundName, roundMsgs]) => (
-          <div key={roundName}>
-            <div className="text-center my-2">
-              <span className="inline-flex items-center gap-1.5 text-[10px] text-indigo-300/60 font-medium uppercase tracking-wider">
-                <span>{ROUND_ICONS[roundName] || ""}</span>
-                {roundName}
-              </span>
-            </div>
-            {roundMsgs.map((msg, idx) => (
-              <motion.div
-                key={`${roundName}-${idx}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.02] transition-colors"
-              >
-                <span
-                  className="text-xs font-bold flex-shrink-0 min-w-[100px] text-right"
-                  style={{ color: msg.agent.avatar_color }}
-                >
-                  {msg.agent.name}:
-                </span>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  {msg.content}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        ))}
-      </div>
+      {/* Interjection Input - floating modal overlay */}
+      <AnimatePresence>
+        {pauseData && onSendInterjection && onSkipInterjection && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            >
+              <InterjectionInput
+                nextRound={pauseData.nextRound}
+                timeoutSeconds={pauseData.timeoutSeconds}
+                onSubmit={onSendInterjection}
+                onSkip={onSkipInterjection}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Sentiment Chart */}
+      <AnimatePresence>
+        {analyses.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-4 right-4 z-40"
+          >
+            <SentimentChart analyses={analyses} agents={setup.agents} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
+
+      
 
       {/* Stop Confirmation */}
       <AnimatePresence>

@@ -5,6 +5,9 @@ import { useDebateWebSocket } from "@/hooks/useDebateWebSocket";
 import TopicInput from "@/components/TopicInput";
 import DebateStage from "@/components/DebateStage";
 import VerdictCard from "@/components/VerdictCard";
+import UserVote from "@/components/UserVote";
+import VoteComparison from "@/components/VoteComparison";
+import FactCheckOverlay from "@/components/FactCheckOverlay";
 import { motion } from "framer-motion";
 
 export default function Home() {
@@ -16,14 +19,19 @@ export default function Home() {
     activeAgent,
     thinkingAgent,
     verdict,
+    analyses,
+    pauseData,
     error,
     statusMessage,
     startDebate,
+    sendInterjection,
+    skipInterjection,
     disconnect,
   } = useDebateWebSocket();
 
-  // Only show verdict after all audio has finished playing
   const [audioAllDone, setAudioAllDone] = useState(false);
+  const [userVote, setUserVote] = useState<string | null>(null);
+  const [voteSkipped, setVoteSkipped] = useState(false);
 
   const handleAllAudioDone = useCallback(() => {
     setAudioAllDone(true);
@@ -31,23 +39,25 @@ export default function Home() {
 
   const handleDisconnect = useCallback(() => {
     setAudioAllDone(false);
+    setUserVote(null);
+    setVoteSkipped(false);
     disconnect();
   }, [disconnect]);
 
   const handleStartDebate = useCallback(
-    (topic: string, language: string = "english", demo: boolean = false, transcript?: string) => {
+    (topic: string, language: string = "english", demo: boolean = false, transcript?: string, numAgents: number = 3, numRounds: number = 4, personaConstraints: string = "") => {
       setAudioAllDone(false);
-      startDebate(topic, language, demo, transcript);
+      setUserVote(null);
+      setVoteSkipped(false);
+      startDebate(topic, language, demo, transcript, numAgents, numRounds, personaConstraints);
     },
     [startDebate]
   );
 
-  // Verdict is ready to show only when server sent it AND all audio finished
-  const showVerdict = verdict && audioAllDone;
-
-  // Server says debate data is done (verdict received or finished status)
-  const debateDataDone =
-    status === "verdict" || status === "finished";
+  const debateDataDone = status === "verdict" || status === "finished";
+  const voteDone = userVote !== null || voteSkipped;
+  const showVoteScreen = debateDataDone && audioAllDone && !voteDone;
+  const showVerdict = verdict && audioAllDone && voteDone;
 
   if (status === "idle") {
     return <TopicInput onSubmit={handleStartDebate} isLoading={false} />;
@@ -142,7 +152,7 @@ export default function Home() {
   return (
     <div className="h-screen flex flex-col p-3 md:p-4">
       {/* Top Bar */}
-      <div className="flex justify-between items-center mb-3">
+      <div className="flex justify-between items-center mb-3 relative z-50">
         <h1 className="text-lg font-bold text-white flex items-center gap-2">
           <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm">
             {"\u2696\uFE0F"}
@@ -152,12 +162,15 @@ export default function Home() {
             AI
           </span>
         </h1>
-        <button
-          onClick={handleDisconnect}
-          className="text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-4 py-1.5 rounded-lg transition-all hover:border-indigo-500/30"
-        >
-          New Debate
-        </button>
+        <div className="flex items-center gap-2">
+          {analyses.length > 0 && <FactCheckOverlay analyses={analyses} />}
+          <button
+            onClick={handleDisconnect}
+            className="text-sm bg-red-600/80 hover:bg-red-500 border border-red-500/50 text-white font-medium px-4 py-1.5 rounded-lg transition-all shadow-lg shadow-red-500/20"
+          >
+            New Debate
+          </button>
+        </div>
       </div>
 
       {/* Debate Stage */}
@@ -169,6 +182,10 @@ export default function Home() {
             currentRound={currentRound}
             activeAgent={activeAgent}
             thinkingAgent={thinkingAgent}
+            analyses={analyses}
+            pauseData={pauseData}
+            onSendInterjection={sendInterjection}
+            onSkipInterjection={skipInterjection}
             onAllAudioDone={handleAllAudioDone}
             onStop={handleDisconnect}
             debateFinishedFromServer={debateDataDone}
@@ -176,14 +193,28 @@ export default function Home() {
         </div>
       )}
 
-      {/* Verdict - only shown after all audio has finished */}
+      {/* User Vote - shown after audio finishes, before verdict */}
+      {showVoteScreen && setup && (
+        <UserVote
+          agents={setup.agents}
+          onVote={(name) => setUserVote(name)}
+          onSkip={() => setVoteSkipped(true)}
+        />
+      )}
+
+      {/* Verdict + Vote Comparison */}
       {showVerdict && setup && (
-        <VerdictCard verdict={verdict} topic={setup.topic} />
+        <>
+          {userVote && verdict && (
+            <VoteComparison userVote={userVote} aiWinner={verdict.winner} />
+          )}
+          <VerdictCard verdict={verdict} topic={setup.topic} />
+        </>
       )}
 
       {/* Status footer */}
       <div className="text-center mt-2 pb-1">
-        {!showVerdict && (status === "debating" || debateDataDone) && (
+        {!showVerdict && !showVoteScreen && (status === "debating" || debateDataDone) && (
           <span className="text-xs text-indigo-300/70 flex items-center justify-center gap-2">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
             {debateDataDone && !audioAllDone
