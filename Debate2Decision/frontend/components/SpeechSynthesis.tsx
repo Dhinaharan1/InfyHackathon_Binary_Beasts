@@ -14,10 +14,13 @@ export function useSpeechSynthesis() {
   const playingRef = useRef(false);
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
 
   const ensureAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
@@ -27,13 +30,14 @@ export function useSpeechSynthesis() {
       analyser.smoothingTimeConstant = 0.8;
 
       const gain = ctx.createGain();
-      gain.gain.value = 0.85;
+      gain.gain.value = mutedRef.current ? 0 : 0.85;
 
       analyser.connect(gain);
       gain.connect(ctx.destination);
 
       audioCtxRef.current = ctx;
       analyserRef.current = analyser;
+      gainRef.current = gain;
       dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
     }
 
@@ -148,6 +152,27 @@ export function useSpeechSynthesis() {
     }
   }, []);
 
+  const mute = useCallback(() => {
+    mutedRef.current = true;
+    setMuted(true);
+    // Silence via gain node (keeps audio playing for timing)
+    if (gainRef.current) {
+      gainRef.current.gain.value = 0;
+    } else if (audioRef.current) {
+      audioRef.current.volume = 0;
+    }
+  }, []);
+
+  const unmute = useCallback(() => {
+    mutedRef.current = false;
+    setMuted(false);
+    if (gainRef.current) {
+      gainRef.current.gain.value = 0.85;
+    } else if (audioRef.current) {
+      audioRef.current.volume = 0.85;
+    }
+  }, []);
+
   const stop = useCallback(() => {
     queueRef.current = [];
     playingRef.current = false;
@@ -160,5 +185,5 @@ export function useSpeechSynthesis() {
     }
   }, []);
 
-  return { speak, stop, pause, resume, paused, isIdle, getAmplitude };
+  return { speak, stop, pause, resume, paused, mute, unmute, muted, isIdle, getAmplitude };
 }

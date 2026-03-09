@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from models import DebateRequest
 from fastapi import Body
-from orchestrator import generate_debate_setup, generate_debate_from_transcript, check_topic_sensitivity, analyze_message
+from orchestrator import generate_debate_setup, generate_debate_from_transcript, check_topic_sensitivity, analyze_message, answer_verdict_query, get_verdict_suggestions
 from debate_engine import DebateEngine, ROUND_NAMES
 from demo_data import (
     DEMO_SETUP, DEMO_MESSAGES, DEMO_VERDICT,
@@ -28,6 +28,36 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/api/verdict-suggestions")
+async def verdict_suggestions(body: dict = Body(...)):
+    try:
+        topic = body.get("topic", "")
+        winner = body.get("winner", "")
+        conclusion = body.get("conclusion", "")
+        if not topic.strip():
+            return {"suggestions": []}
+        return await get_verdict_suggestions(topic, winner, conclusion)
+    except Exception as e:
+        print(f"[/api/verdict-suggestions] error: {e}")
+        return {"suggestions": []}
+
+
+@app.post("/api/verdict-query")
+async def verdict_query(body: dict = Body(...)):
+    try:
+        topic = body.get("topic", "")
+        conclusion = body.get("conclusion", "")
+        reasoning = body.get("reasoning", "")
+        winner = body.get("winner", "")
+        query = body.get("query", "").strip()
+        if not query:
+            return {"type": "text", "content": "Please enter a question."}
+        return await answer_verdict_query(topic, conclusion, reasoning, winner, query)
+    except Exception as e:
+        print(f"[/api/verdict-query] error: {e}")
+        return {"type": "text", "content": f"An error occurred: {str(e)}. Please try again."}
 
 
 @app.post("/api/check-topic")

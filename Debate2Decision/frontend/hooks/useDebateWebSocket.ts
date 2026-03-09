@@ -235,6 +235,14 @@ export function useDebateWebSocket() {
     updateStatus("idle");
   }, [updateStatus]);
 
+  // Stop TTS display but keep WS open so verdict still arrives from server
+  const forceComplete = useCallback(() => {
+    // Do NOT close the websocket — let backend keep sending until verdict arrives
+    // We just signal the UI to stop showing live audio and reveal all messages
+    setActiveAgent(null);
+    setThinkingAgent(null);
+  }, []);
+
   return {
     status,
     setup,
@@ -252,5 +260,6 @@ export function useDebateWebSocket() {
     sendInterjection,
     skipInterjection,
     disconnect,
+    forceComplete,
   };
 }

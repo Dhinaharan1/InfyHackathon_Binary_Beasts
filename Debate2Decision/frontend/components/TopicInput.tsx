@@ -203,484 +203,365 @@ export default function TopicInput({ onSubmit, isLoading }: Props) {
   const currentExamples = EXAMPLE_TOPICS[language] || EXAMPLE_TOPICS.english;
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 relative overflow-hidden">
+    <div className="h-screen flex overflow-hidden p-4 relative">
       {FLOATING_ICONS.map((icon, i) => (
         <motion.div
           key={i}
           className="absolute text-2xl opacity-10 select-none pointer-events-none"
-          initial={{
-            x: `${(i * 13 + 5) % 90}vw`,
-            y: `${(i * 17 + 10) % 85}vh`,
-          }}
+          initial={{ x: `${(i * 13 + 5) % 90}vw`, y: `${(i * 17 + 10) % 85}vh` }}
           animate={{
-            y: [
-              `${(i * 17 + 10) % 85}vh`,
-              `${((i * 17 + 10) % 85) - 15}vh`,
-              `${(i * 17 + 10) % 85}vh`,
-            ],
+            y: [`${(i * 17 + 10) % 85}vh`, `${((i * 17 + 10) % 85) - 15}vh`, `${(i * 17 + 10) % 85}vh`],
             rotate: [0, 10, -10, 0],
           }}
-          transition={{
-            duration: 4 + i * 0.5,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          transition={{ duration: 4 + i * 0.5, repeat: Infinity, ease: "easeInOut" }}
         >
           {icon}
         </motion.div>
       ))}
 
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="w-full max-w-2xl relative z-10"
-      >
-        {/* Header */}
-        <div className="text-center mb-10">
+      {/* ── Two-column layout: Logo left | Form right ── */}
+      <div className="flex w-full max-w-5xl mx-auto gap-8 items-center relative z-10">
+
+        {/* ── LEFT: Logo + tagline + feature pills ── */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7 }}
+          className="flex flex-col items-center justify-center flex-shrink-0 w-64"
+        >
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-            className="inline-block mb-4"
+            initial={{ scale: 0.75, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 180, damping: 16, delay: 0.1 }}
           >
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-4xl mx-auto shadow-lg shadow-indigo-500/30">
-              {"\u2696\uFE0F"}
-            </div>
+            <img
+              src="/Debate2Decisionlogo.png"
+              alt="Debate 2 Decision AI"
+              className="h-44 w-auto select-none"
+              draggable={false}
+              style={{ filter: "drop-shadow(0 0 28px rgba(99,102,241,0.4)) drop-shadow(0 0 10px rgba(251,146,60,0.3))" }}
+            />
           </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-5xl font-extrabold text-white mb-3 tracking-tight"
-          >
-            Debate 2 Decision{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 animated-gradient">
-              AI
-            </span>
-          </motion.h1>
-
           <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-gray-400 text-lg max-w-md mx-auto"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="text-gray-400 text-sm text-center mt-3 max-w-[200px] leading-relaxed"
           >
             Your AI decision council for every complex question.
           </motion.p>
-        </div>
 
-        {/* Tab Switcher */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55 }}
-          className="flex gap-1 mb-4 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]"
-        >
-          <button
-            type="button"
-            onClick={() => setTab("topic")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              tab === "topic"
-                ? "bg-indigo-600/80 text-white shadow-lg shadow-indigo-500/20"
-                : "text-gray-400 hover:text-gray-200 hover:bg-white/[0.05]"
-            }`}
+          {/* Feature pills */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="flex flex-col gap-2 mt-5 w-full"
           >
-            <span>{"\uD83D\uDDE3\uFE0F"}</span>
-            Debate Topic
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("transcript")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              tab === "transcript"
-                ? "bg-indigo-600/80 text-white shadow-lg shadow-indigo-500/20"
-                : "text-gray-400 hover:text-gray-200 hover:bg-white/[0.05]"
-            }`}
+            {[
+              { icon: "🤖", label: "AI Personas" },
+              { icon: "🔄", label: `${numRounds} Debate Rounds` },
+              { icon: "🏆", label: "Final Verdict" },
+              { icon: "🌐", label: "Multi-Language" },
+            ].map((f) => (
+              <div key={f.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                <span className="text-base">{f.icon}</span>
+                <span className="text-xs text-gray-400 font-medium">{f.label}</span>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Try Demo button */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.65 }}
+            className="mt-4 w-full"
           >
-            <span>{"\uD83D\uDCCB"}</span>
-            Chat Transcript
-          </button>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-px flex-1 bg-white/10" />
+              <span className="text-[10px] text-gray-600 uppercase tracking-wider">or</span>
+              <div className="h-px flex-1 bg-white/10" />
+            </div>
+            <button
+              type="button"
+              onClick={() => tab === "transcript" ? onSubmit("demo", "english", true, "demo-transcript") : onSubmit("demo", "english", true)}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 bg-white/[0.03] hover:bg-white/[0.07] border border-amber-500/20 hover:border-amber-500/40 text-amber-200 px-4 py-2 rounded-xl transition-all text-xs font-medium disabled:opacity-50"
+            >
+              <span>🎬</span>
+              {tab === "transcript" ? "Try Transcript Demo" : "Try Demo"}
+              <span className="text-amber-400/50 text-[10px]">(no API key)</span>
+            </button>
+          </motion.div>
         </motion.div>
 
-        {/* Input Card */}
+        {/* ── RIGHT: Input card ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="glass-card-strong rounded-2xl p-6 shadow-2xl shadow-indigo-500/5"
+          transition={{ duration: 0.7, delay: 0.1 }}
+          className="flex-1 min-w-0 flex flex-col gap-2.5"
         >
-          {/* Language selector */}
-          <div className="mb-4">
-            <label className="text-sm font-medium text-gray-300 block mb-2">
-              Debate Language
-            </label>
-            <div className="flex gap-2 mb-2">
-              {LANGUAGES.slice(0, 3).map((lang) => (
-                <button
-                  key={lang.code}
-                  type="button"
-                  onClick={() => {
-                    setLanguage(lang.code);
-                    setCustomLanguage("");
-                    setTopic("");
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    language === lang.code && !customLanguage
-                      ? "bg-indigo-600/80 text-white border border-indigo-500/50 shadow-lg shadow-indigo-500/20"
-                      : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08] hover:border-indigo-500/30"
-                  }`}
-                >
-                  <span className="text-lg">{lang.flag}</span>
-                  <span>{lang.label}</span>
-                  <span className="text-xs opacity-60">({lang.native})</span>
-                </button>
-              ))}
+          {/* Tab Switcher */}
+          <div className="flex gap-1 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
+            <button
+              type="button"
+              onClick={() => setTab("topic")}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                tab === "topic" ? "bg-indigo-600/80 text-white shadow-lg shadow-indigo-500/20" : "text-gray-400 hover:text-gray-200 hover:bg-white/[0.05]"
+              }`}
+            >
+              <span>🗣️</span> Debate Topic
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("transcript")}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                tab === "transcript" ? "bg-indigo-600/80 text-white shadow-lg shadow-indigo-500/20" : "text-gray-400 hover:text-gray-200 hover:bg-white/[0.05]"
+              }`}
+            >
+              <span>📋</span> Chat Transcript
+            </button>
+          </div>
+
+          {/* Input Card */}
+          <div className="glass-card-strong rounded-2xl p-4 shadow-2xl shadow-indigo-500/5">
+            {/* Language selector */}
+            <div className="mb-3">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">
+                Debate Language
+              </label>
+              <div className="flex gap-1.5 mb-1.5">
+                {LANGUAGES.slice(0, 3).map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => { setLanguage(lang.code); setCustomLanguage(""); setTopic(""); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                      language === lang.code && !customLanguage
+                        ? "bg-indigo-600/80 text-white border border-indigo-500/50"
+                        : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08] hover:border-indigo-500/30"
+                    }`}
+                  >
+                    <span>{lang.flag}</span>
+                    <span>{lang.label}</span>
+                    <span className="opacity-50">({lang.native})</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMoreLangs(!showMoreLangs)}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                {showMoreLangs ? "Show Less" : `View More Languages (${LANGUAGES.length - 3}+)`}
+              </button>
+              <AnimatePresence>
+                {showMoreLangs && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden mt-1.5"
+                  >
+                    <div className="grid grid-cols-4 gap-1 mb-1.5">
+                      {LANGUAGES.slice(3).map((lang) => (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => { setLanguage(lang.code); setCustomLanguage(""); setTopic(""); }}
+                          className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                            language === lang.code && !customLanguage
+                              ? "bg-indigo-600/80 text-white border border-indigo-500/50"
+                              : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08] hover:border-indigo-500/30"
+                          }`}
+                          title={lang.native}
+                        >
+                          <span>{lang.flag}</span><span className="truncate">{lang.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={customLanguage}
+                      onChange={(e) => { setCustomLanguage(e.target.value); setLanguage(e.target.value.trim().toLowerCase() || "english"); }}
+                      placeholder="Or type any language..."
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* View More Languages */}
-            <button
-              type="button"
-              onClick={() => setShowMoreLangs(!showMoreLangs)}
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors mb-2"
-            >
-              {showMoreLangs ? "Show Less" : `View More Languages (${LANGUAGES.length - 3}+)`}
-            </button>
-
-            <AnimatePresence>
-              {showMoreLangs && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="grid grid-cols-4 gap-1.5 mb-2">
-                    {LANGUAGES.slice(3).map((lang) => (
-                      <button
-                        key={lang.code}
-                        type="button"
-                        onClick={() => {
-                          setLanguage(lang.code);
-                          setCustomLanguage("");
-                          setTopic("");
-                        }}
-                        className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-medium transition-all ${
-                          language === lang.code && !customLanguage
-                            ? "bg-indigo-600/80 text-white border border-indigo-500/50 shadow-lg shadow-indigo-500/20"
-                            : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:bg-white/[0.08] hover:border-indigo-500/30"
-                        }`}
-                        title={lang.native}
-                      >
-                        <span>{lang.flag}</span>
-                        <span className="truncate">{lang.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    value={customLanguage}
-                    onChange={(e) => {
-                      setCustomLanguage(e.target.value);
-                      if (e.target.value.trim()) {
-                        setLanguage(e.target.value.trim().toLowerCase());
-                      } else {
-                        setLanguage("english");
-                      }
-                    }}
-                    placeholder="Or type any language..."
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Advanced Settings Toggle */}
-          <div className="mb-4">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-sm text-gray-400 hover:text-indigo-300 transition-colors"
-            >
-              <motion.span
-                animate={{ rotate: showAdvanced ? 90 : 0 }}
-                transition={{ duration: 0.2 }}
+            {/* Advanced Settings */}
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-indigo-300 transition-colors"
               >
-                {"\u25B6"}
-              </motion.span>
-              Advanced Settings
-            </button>
-            <AnimatePresence>
-              {showAdvanced && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="grid grid-cols-2 gap-4 mt-3 p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                    <div>
-                      <label className="text-xs font-medium text-gray-400 block mb-1.5">
-                        Number of Agents
-                      </label>
-                      <div className="flex items-center gap-2">
-                        {[2, 3, 4, 5].map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => setNumAgents(n)}
-                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                              numAgents === n
-                                ? "bg-indigo-600/80 text-white border border-indigo-500/50"
-                                : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:border-indigo-500/30"
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        ))}
+                <motion.span animate={{ rotate: showAdvanced ? 90 : 0 }} transition={{ duration: 0.2 }}>▶</motion.span>
+                Advanced Settings
+              </button>
+              <AnimatePresence>
+                {showAdvanced && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-2 gap-3 mt-2 p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                      <div>
+                        <label className="text-[11px] font-medium text-gray-400 block mb-1">Agents</label>
+                        <div className="flex gap-1">
+                          {[2,3,4,5].map((n) => (
+                            <button key={n} type="button" onClick={() => setNumAgents(n)}
+                              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${numAgents === n ? "bg-indigo-600/80 text-white border border-indigo-500/50" : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:border-indigo-500/30"}`}
+                            >{n}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-medium text-gray-400 block mb-1">Rounds</label>
+                        <div className="flex gap-1">
+                          {[2,3,4,5,6].map((n) => (
+                            <button key={n} type="button" onClick={() => setNumRounds(n)}
+                              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${numRounds === n ? "bg-indigo-600/80 text-white border border-indigo-500/50" : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:border-indigo-500/30"}`}
+                            >{n}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[11px] font-medium text-gray-400 block mb-1">Persona Constraints <span className="text-gray-600">(optional)</span></label>
+                        <input
+                          type="text"
+                          value={personaConstraints}
+                          onChange={(e) => setPersonaConstraints(e.target.value)}
+                          placeholder='e.g. "include someone from healthcare"'
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                        />
                       </div>
                     </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-400 block mb-1.5">
-                        Number of Rounds
-                      </label>
-                      <div className="flex items-center gap-2">
-                        {[2, 3, 4, 5, 6].map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => setNumRounds(n)}
-                            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                              numRounds === n
-                                ? "bg-indigo-600/80 text-white border border-indigo-500/50"
-                                : "bg-white/[0.03] text-gray-400 border border-white/[0.06] hover:border-indigo-500/30"
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium text-gray-400 block mb-1.5">
-                        Persona Constraints{" "}
-                        <span className="text-gray-600">(optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={personaConstraints}
-                        onChange={(e) => setPersonaConstraints(e.target.value)}
-                        placeholder='e.g. "include someone from healthcare" or "add a Gen-Z perspective"'
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-          <AnimatePresence mode="wait">
-            {tab === "topic" ? (
-              <motion.form
-                key="topic-tab"
-                onSubmit={handleTopicSubmit}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <label className="text-sm font-medium text-gray-300 block mb-2">
-                  Enter a Debate Topic
-                </label>
-                <div className="flex gap-3">
-                  <div className="flex-1 relative">
+            {/* Tab content */}
+            <AnimatePresence mode="wait">
+              {tab === "topic" ? (
+                <motion.form
+                  key="topic-tab"
+                  onSubmit={handleTopicSubmit}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 16 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Enter a Debate Topic</label>
+                  <div className="flex gap-2 mb-3">
                     <input
                       type="text"
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
-                      placeholder={
-                        language === "hindi"
-                          ? "\u0909\u0926\u093E\u0939\u0930\u0923: \u0915\u094D\u092F\u093E AI \u0936\u093F\u0915\u094D\u0937\u0915\u094B\u0902 \u0915\u0940 \u091C\u0917\u0939 \u0932\u0947 \u0938\u0915\u0924\u093E \u0939\u0948?"
-                          : language === "tamil"
-                            ? "\u0B89\u0BA4\u0BBE\u0BB0\u0BA3\u0BAE\u0BCD: AI \u0B86\u0B9A\u0BBF\u0BB0\u0BBF\u0BAF\u0BB0\u0BCD\u0B95\u0BB3\u0BC1\u0B95\u0BCD\u0B95\u0BC1 \u0BAA\u0BA4\u0BBF\u0BB2\u0BBE\u0B95 \u0BB5\u0BB0 \u0BAE\u0BC1\u0B9F\u0BBF\u0BAF\u0BC1\u0BAE\u0BBE?"
-                            : "e.g. Should we move to Microservices?"
-                      }
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all text-base"
+                      placeholder="e.g. Should we move to Microservices?"
+                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all text-sm"
                       disabled={isLoading}
                       autoFocus
                     />
+                    <button
+                      type="submit"
+                      disabled={!topic.trim() || isLoading || checking}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white font-semibold px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-500/25 disabled:shadow-none text-sm whitespace-nowrap"
+                    >
+                      {checking ? (
+                        <span className="flex items-center gap-1.5">
+                          <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          Analyzing...
+                        </span>
+                      ) : "Start Debate"}
+                    </button>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={!topic.trim() || isLoading || checking}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white font-semibold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 disabled:shadow-none"
-                  >
-                    {checking ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Analyzing...
-                      </span>
-                    ) : "Start Debate"}
-                  </button>
-                </div>
 
-                <div className="mt-5">
-                  <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider font-medium">
-                    Popular Topics
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <p className="text-[11px] text-gray-500 mb-2 uppercase tracking-wider font-semibold">Popular Topics</p>
+                  <div className="grid grid-cols-3 gap-1.5">
                     {currentExamples.map((ex) => (
                       <button
                         key={ex.text}
                         type="button"
                         onClick={() => setTopic(ex.text)}
-                        className="text-left text-sm bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-indigo-500/30 text-gray-300 px-4 py-2.5 rounded-xl transition-all flex items-center gap-2.5 group"
+                        className="text-left text-xs bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-indigo-500/30 text-gray-300 px-2.5 py-2 rounded-xl transition-all flex items-center gap-1.5 group"
                       >
-                        <span className="text-lg group-hover:scale-110 transition-transform">
-                          {ex.icon}
-                        </span>
-                        <span className="truncate">{ex.text}</span>
+                        <span className="text-sm flex-shrink-0 group-hover:scale-110 transition-transform">{ex.icon}</span>
+                        <span className="truncate leading-snug">{ex.text}</span>
                       </button>
                     ))}
                   </div>
-                </div>
-              </motion.form>
-            ) : (
-              <motion.form
-                key="transcript-tab"
-                onSubmit={handleTranscriptSubmit}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <label className="text-sm font-medium text-gray-300 block mb-2">
-                  Paste a Chat / Conversation Transcript
-                </label>
-                <textarea
-                  value={transcript}
-                  onChange={(e) => setTranscript(e.target.value)}
-                  placeholder="Paste a team chat, forum discussion, Slack conversation, or meeting transcript here..."
-                  rows={8}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all text-sm leading-relaxed resize-none"
-                  disabled={isLoading}
-                />
-                <div className="flex justify-between items-center mt-3">
-                  <span className="text-xs text-gray-500">
-                    {transcript.length > 0
-                      ? `${transcript.split("\n").filter((l) => l.trim()).length} messages`
-                      : "AI will extract the debate topic automatically"}
-                  </span>
-                  <button
-                    type="submit"
-                    disabled={!transcript.trim() || isLoading}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white font-semibold px-8 py-3 rounded-xl transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 disabled:shadow-none"
-                  >
-                    Analyze & Debate
-                  </button>
-                </div>
+                </motion.form>
+              ) : (
+                <motion.form
+                  key="transcript-tab"
+                  onSubmit={handleTranscriptSubmit}
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">Paste a Chat / Conversation Transcript</label>
+                  <textarea
+                    value={transcript}
+                    onChange={(e) => setTranscript(e.target.value)}
+                    placeholder="Paste a team chat, Slack conversation, or meeting transcript here..."
+                    rows={4}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-xs leading-relaxed resize-none mb-2"
+                    disabled={isLoading}
+                  />
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[11px] text-gray-500">
+                      {transcript.length > 0 ? `${transcript.split("\n").filter((l) => l.trim()).length} lines` : "AI will extract the debate topic automatically"}
+                    </span>
+                    <button
+                      type="submit"
+                      disabled={!transcript.trim() || isLoading}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white font-semibold px-5 py-2 rounded-xl transition-all shadow-lg shadow-indigo-500/25 disabled:shadow-none text-xs"
+                    >
+                      Analyze & Debate
+                    </button>
+                  </div>
 
-                <div className="mt-5">
-                  <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider font-medium">
-                    Sample Transcripts
-                  </p>
-                  <div className="flex flex-col gap-2">
+                  <p className="text-[11px] text-gray-500 mb-2 uppercase tracking-wider font-semibold">Sample Transcripts</p>
+                  <div className="flex flex-col gap-1.5">
                     {DEMO_TRANSCRIPTS.map((demo) => (
                       <button
                         key={demo.title}
                         type="button"
                         onClick={() => setTranscript(demo.transcript)}
-                        className={`text-left text-sm border px-4 py-3 rounded-xl transition-all flex items-start gap-3 group ${
+                        className={`text-left text-xs border px-3 py-2 rounded-xl transition-all flex items-center gap-2.5 group ${
                           transcript === demo.transcript
                             ? "bg-indigo-500/10 border-indigo-500/30 text-white"
                             : "bg-white/[0.03] hover:bg-white/[0.08] border-white/[0.06] hover:border-indigo-500/30 text-gray-300"
                         }`}
                       >
-                        <span className="text-xl mt-0.5 group-hover:scale-110 transition-transform flex-shrink-0">
-                          {demo.icon}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-medium">{demo.title}</p>
-                          <p className="text-xs text-gray-500 mt-0.5 truncate">
-                            {demo.preview}
-                          </p>
+                        <span className="text-base flex-shrink-0 group-hover:scale-110 transition-transform">{demo.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{demo.title}</p>
+                          <p className="text-[10px] text-gray-500 truncate">{demo.preview}</p>
                         </div>
-                        {transcript === demo.transcript && (
-                          <span className="text-indigo-400 text-xs font-medium ml-auto flex-shrink-0 mt-1">
-                            Selected
-                          </span>
-                        )}
+                        {transcript === demo.transcript && <span className="text-indigo-400 text-[10px] font-medium flex-shrink-0">✓ Selected</span>}
                       </button>
                     ))}
                   </div>
-                </div>
-              </motion.form>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Demo button */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="text-center mt-5"
-        >
-          <div className="flex items-center gap-3 justify-center mb-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-xs text-gray-500 uppercase tracking-wider">
-              or
-            </span>
-            <div className="h-px flex-1 bg-white/10" />
+                </motion.form>
+              )}
+            </AnimatePresence>
           </div>
-          <button
-            type="button"
-            onClick={() =>
-              tab === "transcript"
-                ? onSubmit("demo", "english", true, "demo-transcript")
-                : onSubmit("demo", "english", true)
-            }
-            disabled={isLoading}
-            className="inline-flex items-center gap-2 bg-white/[0.03] hover:bg-white/[0.08] border border-amber-500/20 hover:border-amber-500/40 text-amber-200 px-6 py-2.5 rounded-xl transition-all text-sm font-medium disabled:opacity-50"
-          >
-            <span className="text-lg">{"\uD83C\uDFAC"}</span>
-            {tab === "transcript" ? "Try Transcript Demo" : "Try Demo"}
-            <span className="text-xs text-amber-400/60">
-              (no API key needed)
-            </span>
-          </button>
         </motion.div>
-
-        {/* Footer features */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.9 }}
-          className="flex justify-center gap-8 mt-8"
-        >
-          {[
-            { icon: "\uD83E\uDD16", label: "AI Personas" },
-            { icon: "\uD83D\uDD04", label: `${numRounds} Rounds` },
-            { icon: "\uD83C\uDFC6", label: "Final Verdict" },
-            { icon: "\uD83C\uDF10", label: "Multi-Language" },
-          ].map((f) => (
-            <div key={f.label} className="flex flex-col items-center gap-1">
-              <span className="text-xl">{f.icon}</span>
-              <span className="text-[11px] text-gray-500 font-medium">
-                {f.label}
-              </span>
-            </div>
-          ))}
-        </motion.div>
-      </motion.div>
+      </div>
 
       {/* Sensitivity Warning Modal */}
       <AnimatePresence>

@@ -269,6 +269,171 @@ def get_language_config(language: str) -> dict:
     }
 
 
+VERDICT_SUGGESTIONS_PROMPT = """You are an expert decision consultant. A debate has just concluded on the topic below. Generate 5 highly specific, insightful follow-up questions a decision-maker would want to ask — tailored exactly to this topic and outcome.
+
+Debate Topic: "{topic}"
+Winner / Outcome: "{winner}"
+Conclusion: "{conclusion}"
+
+Rules for generating questions:
+- Make them SPECIFIC to this exact topic (no generic questions)
+- Mix question types: 1-2 that ask for a diagram/architecture/flowchart, 1-2 that ask for statistics/data/charts, 1-2 that ask for text explanation or comparison
+- For technical topics (microservices, cloud, AI, software): suggest architecture diagram, system design, technical comparison questions
+- For business/HR topics (remote work, dress code, 4-day week): suggest industry adoption stats, company examples, implementation roadmap questions
+- For financial/economic topics: suggest market data, trend charts, risk analysis questions
+- For social/educational topics: suggest research statistics, case study questions, policy comparison questions
+- Questions should help the user make a real decision or understand the topic deeply
+
+Return ONLY valid JSON (no markdown, no code fences):
+{{
+  "suggestions": [
+    {{"text": "the question text", "type": "diagram" | "stats" | "chart" | "text", "icon": "a relevant emoji"}}
+  ]
+}}
+"""
+
+# Prompt for non-diagram queries (stats / chart / text) — no SVG in JSON
+VERDICT_QUERY_PROMPT = """You are an expert decision consultant. A debate on the following topic has just concluded.
+
+Debate Topic: "{topic}"
+Debate Conclusion: "{conclusion}"
+Judge's Reasoning: "{reasoning}"
+Winner: "{winner}"
+
+User Query: "{query}"
+
+Respond in ONE of these three formats:
+
+1. statistics/numbers/benchmarks/adoption rates → format "stats":
+   {{"type":"stats","data":[{{"label":"...","value":"...","detail":"..."}}],"summary":"1-sentence insight"}}
+   Include 4-6 items.
+
+2. chart/graph/trend/comparison across categories → format "chart":
+   {{"type":"chart","chart_type":"bar" or "pie","title":"...","data":[{{"label":"...","value":<number>}}],"unit":"% or relevant unit","summary":"1-sentence insight"}}
+   Include 4-8 data points.
+
+3. explanation/comparison/pros-cons/recommendation → format "text":
+   {{"type":"text","content":"2-4 paragraphs answering the query"}}
+
+Rules:
+- Choose the format that best serves the user.
+- Be specific, accurate, and decision-focused.
+- Return ONLY valid JSON. No markdown. No code fences. No extra keys.
+"""
+
+# Separate prompt for diagram — returns raw SVG, NOT wrapped in JSON (avoids json.loads issues)
+VERDICT_DIAGRAM_PROMPT = """You are an expert technical architect and diagram designer. Generate a professional SVG diagram for the query below.
+
+Debate Topic: "{topic}"
+User Query: "{query}"
+
+Requirements:
+- Return ONLY the raw SVG XML — no JSON, no markdown, no explanation, no code fences.
+- Start directly with <svg and end with </svg>.
+- Use viewBox="0 0 800 520" width="800" height="520".
+- Dark background rect: fill="#0f0f1a".
+- Boxes: rounded rect (rx="8"), colored fills (indigo #6366f1, emerald #10b981, amber #f59e0b, purple #8b5cf6, rose #f43f5e).
+- White text labels inside boxes, font-family="system-ui,sans-serif".
+- Arrows: lines or paths with stroke="#6b7280" and arrowhead markers.
+- Title at top in white, font-size="18", font-weight="bold".
+- Make it accurate and specific to the topic — show real components, layers, or flows relevant to "{topic}".
+"""
+
+DIAGRAM_QUERY_KEYWORDS = [
+    "diagram", "architecture", "flowchart", "flow chart", "system design",
+    "design diagram", "technical design", "draw", "visualize", "visualise",
+    "show me how", "workflow", "pipeline", "process flow", "infrastructure",
+    "structure", "layout", "blueprint", "roadmap diagram",
+]
+
+
+def _is_diagram_query(query: str) -> bool:
+    q = query.lower()
+    return any(kw in q for kw in DIAGRAM_QUERY_KEYWORDS)
+
+
+def _clean_json(text: str) -> str:
+    """Strip markdown fences and leading/trailing whitespace."""
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.split("\n")
+        # drop first fence line and last fence line
+        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    return text.strip()
+
+
+async def get_verdict_suggestions(topic: str, winner: str, conclusion: str) -> dict:
+    prompt = VERDICT_SUGGESTIONS_PROMPT.format(
+        topic=topic,
+        winner=winner or "",
+        conclusion=conclusion or "",
+    )
+    try:
+        text = await call_groq(
+            prompt,
+            system="You are an expert decision consultant. Return ONLY valid JSON. No markdown, no code fences.",
+            max_retries=3,
+        )
+        text = _clean_json(text)
+        return json.loads(text)
+    except Exception as e:
+        print(f"[verdict-suggestions] error: {e}")
+        return {"suggestions": []}
+
+
+async def answer_verdict_query(topic: str, conclusion: str, reasoning: str, winner: str, query: str) -> dict:
+    # Diagram queries: return raw SVG separately — avoids embedding SVG in JSON
+    if _is_diagram_query(query):
+        try:
+            prompt = VERDICT_DIAGRAM_PROMPT.format(topic=topic, query=query)
+            svg_text = await call_groq(
+                prompt,
+                system="You are an expert SVG diagram generator. Return ONLY raw SVG XML starting with <svg. No JSON, no markdown.",
+                max_retries=3,
+            )
+            svg_text = svg_text.strip()
+            # Strip any accidental fences
+            if svg_text.startswith("```"):
+                svg_text = "\n".join(svg_text.split("\n")[1:])
+                svg_text = svg_text.rsplit("```", 1)[0].strip()
+            # Ensure it starts with <svg
+            if "<svg" not in svg_text:
+                raise ValueError("LLM did not return SVG")
+            svg_text = svg_text[svg_text.index("<svg"):]
+            return {"type": "diagram", "title": query, "svg": svg_text}
+        except Exception as e:
+            print(f"[verdict-diagram] error: {e}, falling back to text")
+            # Fall through to text response
+
+    # Non-diagram queries
+    prompt = VERDICT_QUERY_PROMPT.format(
+        topic=topic,
+        conclusion=conclusion or "",
+        reasoning=reasoning or "",
+        winner=winner or "",
+        query=query,
+    )
+    try:
+        text = await call_groq(
+            prompt,
+            system="You are an expert decision consultant. Return ONLY valid JSON. No markdown, no code fences.",
+            max_retries=3,
+        )
+        text = _clean_json(text)
+        result = json.loads(text)
+        # Ensure required keys exist
+        if "type" not in result:
+            raise ValueError("Missing type field")
+        return result
+    except Exception as e:
+        print(f"[verdict-query] JSON parse error: {e}\nRaw text: {text[:300] if 'text' in dir() else 'N/A'}")
+        # Graceful fallback — return the raw text as a text response
+        return {
+            "type": "text",
+            "content": text if "text" in dir() else "Unable to generate a response. Please try again.",
+        }
+
+
 TRANSCRIPT_PROMPT = """You are an expert debate organizer. You are given a chat transcript or conversation from a team discussion, forum, or meeting. Your job is to:
 
 1. Analyze the transcript and identify the core debate topic being discussed
